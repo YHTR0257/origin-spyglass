@@ -2,9 +2,13 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 class Settings(BaseSettings):
-    app_name: str = "llm-agent-boilerplate"
+    app_name: str = "origin-spyglass"
     environment: str = "local"
     model_id: str = "llm-agent"
 
@@ -17,4 +21,5 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
+    logger.debug("loading settings")
     return Settings()
