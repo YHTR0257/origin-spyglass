@@ -1,0 +1,65 @@
+name: Claude Auto Review
+
+on:
+  pull_request:
+    types: [opened]
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  auto-review:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' && contains(github.event.issue.body, '@claude'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Automatic PR Review
+        uses: anthropics/claude-code-action@beta
+        with:
+          trigger_phrase: "@claude"
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          timeout_minutes: "60"
+          allowed_tools: |
+            mcp__github__create_pending_pull_request_review
+            mcp__github__add_comment_to_pending_review
+            mcp__github__submit_pending_pull_request_review
+            mcp__github__get_pull_request_diff
+          direct_prompt: |
+            このPRをレビューし、GitHubのレビューシステムを使用してインラインフィードバックを提供してください。以下の手順に従ってください：
+
+            1. **レビューを開始**: `mcp__github__create_pending_pull_request_review` を使用してペンディングレビューを開始します
+            2. **差分情報を取得**: `mcp__github__get_pull_request_diff` を使用してコードの変更内容と行番号を理解します
+            3. **インラインコメントを追加**: `mcp__github__add_comment_to_pending_review` を使用して、特定の行に対する各フィードバックを追加します
+            4. **レビューを送信**: `mcp__github__submit_pending_pull_request_review` を event type "COMMENT"（"REQUEST_CHANGES" ではなく）で使用して、すべてのコメントを非ブロッキングレビューとして公開します
+
+            レビューで注目すべき点：
+            - コード品質とベストプラクティス
+            - 潜在的なバグやセキュリティの問題
+            - パフォーマンスに関する考慮事項
+            - 保守性と可読性
+            - アーキテクチャと設計の決定
+
+            具体的で実行可能なフィードバックを提供してください。
+            行固有の問題にはインラインコメントを使用し、レビューを送信する際には全体的な要約を含めてください。
+            ポジティブなフィードバックは冗長なため不要です。
+            **重要**: PRをブロックしないように "COMMENT" タイプとして送信してください。

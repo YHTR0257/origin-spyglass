@@ -1,0 +1,33 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/enforce-skills.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/test-backend.sh",
+            "timeout": 120,
+            "statusMessage": "Running backend tests in Docker..."
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/test-frontend.sh",
+            "timeout": 120,
+            "statusMessage": "Running frontend tests in Docker..."
+          }
+        ]
+      }
+    ]
+  }
+}

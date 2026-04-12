@@ -1,0 +1,103 @@
+{
+  // エディタ共通
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit"
+  },
+
+  // Python (backend/) — ruff format
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true
+  },
+  "ruff.configuration": "${workspaceFolder}/backend/pyproject.toml",
+
+  // TypeScript / JavaScript (frontend/) — Prettier
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "prettier.configPath": "${workspaceFolder}/frontend/.prettierrc",
+
+  // ESLint
+  "eslint.workingDirectories": [{ "directory": "frontend", "changeProcessCWD": true }],
+
+  // Python パス
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
+
+  // Code Spell Checker — 技術用語・短縮形の除外
+  "cSpell.ignoreWords": [
+    // ML フレームワーク
+    "pytorch", "sklearn", "scikit", "ndarray", "backprop", "autograd",
+    "batchnorm", "relu", "lstm", "gru",
+    // LLM / Generative AI
+    "llm", "rag", "lora", "qlora", "peft", "gguf",
+    "tokenizer", "embeddings", "openai", "anthropic",
+    "ollama", "langchain", "huggingface",
+    // CUDA / GPU
+    "cuda", "cudnn", "nvcc",
+    // Python エコシステム
+    "pydantic", "uvicorn", "fastapi", "asyncio",
+    "pytest", "mypy", "ruff", "pnpm", "venv",
+    // 略語
+    "kwargs", "repr", "cfg", "idx", "arr", "vec", "cls", "num"
+  ],
+
+  // ── ファイル除外 ──────────────────────────────
+  // エクスプローラー非表示
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.mypy_cache": true,
+    "**/.ruff_cache": true,
+    "**/.pytest_cache": true,
+    "**/*.egg-info": true,
+    "**/.venv": true,
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/.eslintcache": true,
+    "**/pnpm-lock.yaml": true,
+    "**/uv.lock": true,
+    "**/.git": true
+  },
+
+  // ファイル監視除外
+  "files.watcherExclude": {
+    "**/__pycache__/**": true,
+    "**/.mypy_cache/**": true,
+    "**/.ruff_cache/**": true,
+    "**/.pytest_cache/**": true,
+    "**/*.egg-info/**": true,
+    "**/.venv/**": true,
+    "**/node_modules/**": true,
+    "**/.next/**": true
+  },
+
+  // 検索除外
+  "search.exclude": {
+    "**/__pycache__": true,
+    "**/.mypy_cache": true,
+    "**/.ruff_cache": true,
+    "**/.pytest_cache": true,
+    "**/*.egg-info": true,
+    "**/.venv": true,
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/pnpm-lock.yaml": true,
+    "**/uv.lock": true
+  }
+}

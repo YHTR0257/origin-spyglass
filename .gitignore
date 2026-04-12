@@ -1,0 +1,177 @@
+# ========================================
+# Common (OS / IDE / Editor)
+# ========================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# IDE / Editor
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# ========================================
+# Backend (backend/)
+# ========================================
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+backend/.venv/
+.venv/
+
+# uv
+.python-version
+
+# Distribution / packaging
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Type checking / Linting
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+
+# Testing
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+nosetests.xml
+*.cover
+
+# ========================================
+# Frontend (frontend/)
+# ========================================
+
+# Dependencies
+frontend/node_modules/
+node_modules/
+
+# Next.js build
+frontend/.next/
+frontend/out/
+
+# TypeScript
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
+
+# Testing
+frontend/.nyc_output/
+frontend/coverage/
+
+# ========================================
+# Neo4j
+# ========================================
+
+data/neo4j/
+
+# ========================================
+# Shared Resources
+# ========================================
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+
+# envs/ directory (Docker env files)
+envs/**/*.env
+!envs/**/*.env.example
+
+# Secrets
+*.key
+*.pem
+*.p12
+*.pfx
+
+# ========================================
+# Data (data/)
+# ========================================
+
+# Uploaded files (keep structure)
+data/uploads/*
+!data/uploads/.gitkeep
+
+# Documents (keep structure)
+data/documents/*
+!data/documents/.gitkeep
+
+# RAG cache (auto-generated)
+data/.rag_cache/
+
+# ========================================
+# Logs
+# ========================================
+
+logs/*
+!logs/.gitkeep
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ========================================
+# Docker
+# ========================================
+
+*.local.yml
+
+# ========================================
+# Temporary / Cache
+# ========================================
+
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+.cache/
+
+# ========================================
+# Misc
+# ========================================
+
+# Local scripts
+*.local.sh
+*.local.py
+
+# vscode settings (settings.json は .vscode/* の negation で追跡)
+lakda.code-workspace
+
+# ========================================
+# LLM Models
+# ========================================
+
+ollama/ollama_models/

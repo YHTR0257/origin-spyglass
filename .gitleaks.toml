@@ -1,0 +1,19 @@
+[extend]
+# 公式ルールセットを継承
+useDefault = true
+
+[allowlist]
+description = "グローバル除外"
+paths = [
+    ".cache/",
+    "uv.lock",
+    "config/.env.example",
+    "config/config.example.yaml",
+]
+
+# カスタムルール追加例:
+# [[rules]]
+# id = "custom-api-key"
+# description = "Custom API Key"
+# regex = '''(?i)custom_api_key\s*=\s*['\"]([^'"]{20,})['\"]'''
+# tags = ["key", "custom"]

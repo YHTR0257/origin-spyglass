@@ -1,0 +1,73 @@
+[files]
+extend-exclude = [
+  "uv.lock",
+  ".cache/",
+  "node_modules/",
+  "frontend/.next/",
+]
+
+# ──────────────────────────────────────────────
+# 正しいスペルとして許可する単語
+# (typos が誤検知しやすい技術用語・短縮形)
+# 書式: 誤検知される形 = "正しい形"
+# ──────────────────────────────────────────────
+[default.extend-words]
+
+# ML フレームワーク
+pytorch   = "pytorch"    # → portrait 等に誤変換される
+sklearn   = "sklearn"    # scikit-learn 略称
+nd        = "nd"         # ndarray 等の接頭辞
+backprop  = "backprop"   # back-propagation 略称
+autograd  = "autograd"
+batchnorm = "batchnorm"
+relu      = "relu"       # Rectified Linear Unit
+lstm      = "lstm"
+gru       = "gru"        # Gated Recurrent Unit
+
+# LLM / Generative AI
+llm       = "llm"        # Large Language Model
+rag       = "rag"        # Retrieval-Augmented Generation
+lora      = "lora"       # Low-Rank Adaptation
+qlora     = "qlora"
+peft      = "peft"       # Parameter-Efficient Fine-Tuning
+gguf      = "gguf"       # GGUF model format
+tokenizer = "tokenizer"
+embeddings = "embeddings"
+openai    = "openai"
+anthropic = "anthropic"
+ollama    = "ollama"
+langchain = "langchain"
+huggingface = "huggingface"
+
+# CUDA / GPU
+cuda      = "cuda"       # → Cuba に誤変換される
+cudnn     = "cudnn"
+nvcc      = "nvcc"
+
+# Python エコシステム
+pydantic  = "pydantic"
+uvicorn   = "uvicorn"
+fastapi   = "fastapi"
+asyncio   = "asyncio"
+pytest    = "pytest"
+mypy      = "mypy"
+ruff      = "ruff"
+pnpm      = "pnpm"
+venv      = "venv"
+
+# 略語・短縮形
+args      = "args"       # arguments
+kwargs    = "kwargs"     # keyword arguments
+repr      = "repr"       # representation
+cfg       = "cfg"        # config
+idx       = "idx"        # index
+arr       = "arr"        # array
+vec       = "vec"        # vector
+cls       = "cls"        # class (Python convention)
+num       = "num"        # number
+
+[type.py]
+extend-glob = ["*.py"]
+
+[type.ts]
+extend-glob = ["*.ts", "*.tsx"]

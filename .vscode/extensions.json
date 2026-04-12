@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    // Python / Backend
+    "charliermarsh.ruff",
+    "ms-python.python",
+    // Frontend
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint"
+  ]
+}

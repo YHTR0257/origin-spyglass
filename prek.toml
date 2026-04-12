@@ -1,0 +1,42 @@
+# 汎用ファイルチェック
+[[repos]]
+repo = "https://github.com/pre-commit/pre-commit-hooks"
+rev = "v6.0.0"
+hooks = [
+  { id = "check-yaml" },
+  { id = "check-toml" },
+  { id = "end-of-file-fixer" },
+  { id = "trailing-whitespace" },
+]
+
+# Python lint + format (backend/ only)
+[[repos]]
+repo = "https://github.com/astral-sh/ruff-pre-commit"
+rev = "v0.11.4"
+hooks = [
+  { id = "ruff", args = ["--fix"], files = "^backend/" },
+  { id = "ruff-format", files = "^backend/" },
+]
+
+# スペルチェック (全体)
+[[repos]]
+repo = "https://github.com/crate-ci/typos"
+rev = "v1.31.1"
+hooks = [
+  { id = "typos" },
+]
+
+# シークレット検出 (全体)
+[[repos]]
+repo = "https://github.com/gitleaks/gitleaks"
+rev = "v8.24.0"
+hooks = [
+  { id = "gitleaks" },
+]
+
+# ESLint (frontend/ only)
+[[repos]]
+repo = "local"
+hooks = [
+  { id = "eslint", name = "eslint", entry = "bash -c 'cd frontend && pnpm exec eslint --max-warnings=0 .'", language = "system", files = "^frontend/.*\\.[jt]sx?$", pass_filenames = false },
+]
