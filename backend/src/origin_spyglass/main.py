@@ -1,8 +1,7 @@
-from fastapi import FastAPI
-
 from app.api import v1_router
 from app.security_headers import SecurityHeadersMiddleware
 from app.utils import get_settings
+from fastapi import FastAPI
 
 
 def create_app() -> FastAPI:

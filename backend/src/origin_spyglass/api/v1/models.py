@@ -1,7 +1,6 @@
-from fastapi import APIRouter
-
 from app.schemas.openai import ModelList, ModelObject
 from app.utils import get_settings
+from fastapi import APIRouter
 
 router = APIRouter(tags=["models"])
 
