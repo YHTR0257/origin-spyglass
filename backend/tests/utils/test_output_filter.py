@@ -2,7 +2,7 @@ import logging
 
 import pytest
 
-from utils.output_filter import check_sensitive, sanitize
+from spyglass_utils.output_filter import check_sensitive, sanitize
 
 # ---------------------------------------------------------------------------
 # sanitize — HTML エスケープ
