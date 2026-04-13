@@ -2,7 +2,7 @@ import logging
 
 import pytest
 
-from app.utils.output_filter import check_sensitive, sanitize
+from spyglass_utils.output_filter import check_sensitive, sanitize
 
 # ---------------------------------------------------------------------------
 # sanitize — HTML エスケープ
@@ -55,6 +55,6 @@ def test_passes_clean_text() -> None:
 
 
 def test_warns_on_email(caplog: pytest.LogCaptureFixture) -> None:
-    with caplog.at_level(logging.WARNING, logger="app.utils.output_filter"):
+    with caplog.at_level(logging.WARNING, logger="utils.output_filter"):
         check_sensitive("contact: user@example.com")
     assert any("email" in record.message for record in caplog.records)

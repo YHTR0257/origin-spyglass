@@ -2,7 +2,7 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from utils.logging import get_logger
+from spyglass_utils.logging import get_logger
 
 logger = get_logger(__name__)
 

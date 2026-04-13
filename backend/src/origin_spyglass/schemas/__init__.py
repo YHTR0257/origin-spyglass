@@ -1,3 +1,4 @@
+from .doc_relation import DocRelation, SourceType
 from .health import HealthResponse
 from .openai import (
     ChatCompletionChoice,
@@ -8,8 +9,10 @@ from .openai import (
     ModelList,
     ModelObject,
 )
+from .semantic_knowledge import SemanticKnowledge
 
 __all__ = [
+    "DocRelation",
     "HealthResponse",
     "ChatCompletionChoice",
     "ChatCompletionRequest",
@@ -18,4 +21,6 @@ __all__ = [
     "ChatMessage",
     "ModelList",
     "ModelObject",
+    "SemanticKnowledge",
+    "SourceType",
 ]

@@ -1,8 +1,8 @@
-from app.schemas.openai import ModelList, ModelObject
-from app.utils import get_settings
 from fastapi import APIRouter
 
-from utils.logging import get_logger
+from origin_spyglass.schemas.openai import ModelList, ModelObject
+from spyglass_utils import get_settings
+from spyglass_utils.logging import get_logger
 
 logger = get_logger(__name__)
 

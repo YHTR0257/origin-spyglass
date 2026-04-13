@@ -1,6 +1,6 @@
 import time
 
-from app.utils.rate_limiter import RateLimiter
+from spyglass_utils.rate_limiter import RateLimiter
 
 
 def test_allows_within_limit() -> None:

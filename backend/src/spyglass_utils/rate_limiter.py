@@ -2,7 +2,7 @@ import threading
 import time
 from collections import defaultdict
 
-from utils.logging import get_logger
+from spyglass_utils.logging import get_logger
 
 logger = get_logger(__name__)
 

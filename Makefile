@@ -1,7 +1,7 @@
 PREK ?= prek
 DOCKER_COMPOSE ?= docker compose
 
-.PHONY: uv-setup build up down logs
+.PHONY: uv-setup build up down logs test-backend
 
 uv-setup:
 	bash scripts/setup_uv.sh
@@ -17,3 +17,6 @@ down:
 
 logs:
 	$(DOCKER_COMPOSE) logs -f
+
+test-backend:
+	cd backend && uv run pytest

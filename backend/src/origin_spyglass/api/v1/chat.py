@@ -1,14 +1,14 @@
-from app.schemas.openai import (
+from fastapi import APIRouter, HTTPException, Request
+
+from origin_spyglass.schemas.openai import (
     ChatCompletionChoice,
     ChatCompletionRequest,
     ChatCompletionResponse,
     ChatMessage,
 )
-from app.utils.output_filter import check_sensitive, sanitize
-from app.utils.rate_limiter import chat_rate_limiter
-from fastapi import APIRouter, HTTPException, Request
-
-from utils.logging import get_logger
+from spyglass_utils.logging import get_logger
+from spyglass_utils.output_filter import check_sensitive, sanitize
+from spyglass_utils.rate_limiter import chat_rate_limiter
 
 logger = get_logger(__name__)
 
