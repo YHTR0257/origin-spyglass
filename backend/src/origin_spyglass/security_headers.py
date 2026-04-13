@@ -2,6 +2,10 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import Response
 
+from spyglass_utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 _CSP = (
     "default-src 'self'; "
     "script-src 'self'; "
@@ -20,4 +24,5 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        logger.debug("security headers applied")
         return response

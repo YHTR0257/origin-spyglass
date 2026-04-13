@@ -1,22 +1,16 @@
-"""OpenAI 互換 API スキーマ定義"""
-
 import time
 import uuid
-from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-
-class Role(StrEnum):
-    SYSTEM = "system"
-    USER = "user"
-    ASSISTANT = "assistant"
+_MAX_MESSAGES = 100
+_MAX_CONTENT_LENGTH = 10_000
 
 
 class ChatMessage(BaseModel):
-    role: Role
-    content: Annotated[str, Field(min_length=1, max_length=10_000)]
+    role: Literal["system", "user", "assistant"]
+    content: Annotated[str, Field(max_length=_MAX_CONTENT_LENGTH)]
 
 
 class ChatCompletionRequest(BaseModel):

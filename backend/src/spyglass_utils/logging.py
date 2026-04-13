@@ -1,30 +1,26 @@
 import logging
+import os
 import sys
 
 
+def setup_logging() -> logging.Logger:
+    logger = logging.getLogger("origin_spyglass")
+    logger.setLevel(os.getenv("LOG_LEVEL", "INFO").upper())
+
+    if logger.handlers:
+        return logger
+
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logger.level)
+
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    handler.setFormatter(formatter)
+
+    logger.addHandler(handler)
+    logger.propagate = False
+    return logger
+
+
 def get_logger(name: str) -> logging.Logger:
-    """名前付きロガーを返す。
-
-    呼び出し側は `get_logger(__name__)` のように使う。
-    初回呼び出し時にルートロガーのハンドラが未設定であれば
-    stderr への StreamHandler を追加する。
-
-    Args:
-        name: ロガー名。通常は呼び出しモジュールの `__name__`。
-
-    Returns:
-        設定済みの Logger インスタンス。
-    """
-    root = logging.getLogger()
-    if not root.handlers:
-        handler = logging.StreamHandler(sys.stderr)
-        handler.setFormatter(
-            logging.Formatter(
-                fmt="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
-                datefmt="%Y-%m-%dT%H:%M:%S",
-            )
-        )
-        root.addHandler(handler)
-        root.setLevel(logging.INFO)
-
+    setup_logging()
     return logging.getLogger(name)

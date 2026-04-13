@@ -1,8 +1,9 @@
 import html
-import logging
 import re
 
-logger = logging.getLogger(__name__)
+from spyglass_utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 # Patterns checked against LLM output.
 # _BLOCK_PATTERNS: high-confidence secret leaks — response is blocked.
