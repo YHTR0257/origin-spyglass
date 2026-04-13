@@ -12,6 +12,7 @@
   },
   "ruff.enable": true,
   "ruff.configuration": "${workspaceFolder}/backend/pyproject.toml",
+  "ruff.cwd": "${workspaceFolder}/backend",
   // TypeScript / JavaScript (frontend/) — Prettier
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
@@ -42,6 +43,9 @@
   ],
   // Python パス
   "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/backend/src"
+  ],
   // Code Spell Checker — 技術用語・短縮形の除外
   "cSpell.ignoreWords": [
     // ML フレームワーク
