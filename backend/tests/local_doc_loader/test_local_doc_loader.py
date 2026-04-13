@@ -4,9 +4,13 @@ import pytest
 
 from origin_spyglass.local_doc_loader import load_document
 from origin_spyglass.local_doc_loader.cleaner import MarkdownCleaner
-from origin_spyglass.local_doc_loader.converter import DocumentConverter, FrontmatterConverter
+from origin_spyglass.local_doc_loader.converter import (
+    DocumentConverter,
+    FrontmatterConverter,
+)
 from origin_spyglass.local_doc_loader.types import (
     DocumentConversionError,
+    FrontmatterMeta,
     LocalDocumentInput,
     MarkdownCleaningError,
     TextDecodingError,
@@ -133,11 +137,9 @@ def test_convert_pdf_markitdown_error(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_frontmatter_add_is_idempotent() -> None:
     frontmatter_converter = FrontmatterConverter()
     original = "---\ncreated_at: 2026-01-01T00:00:00+00:00\nsource_file: a.md\n---\n\nBody"
+    meta = FrontmatterMeta(created_at="2026-01-01T00:00:00+00:00", source_file="a.md")
 
-    result = frontmatter_converter.add_frontmatter(
-        original,
-        frontmatter_converter.parse_frontmatter(original)[0],
-    )
+    result = frontmatter_converter.add_frontmatter(original, meta)
 
     assert result == original
 
