@@ -4,8 +4,14 @@ import re
 
 from llama_index.core.node_parser import SentenceSplitter
 
+from spyglass_utils.logging import get_logger
+
+from .types import MarkdownCleaningError
+
 _CHUNK_SIZE = 800
 _CHUNK_OVERLAP = 80
+
+logger = get_logger(__name__)
 
 
 class MarkdownCleaner:
@@ -17,7 +23,7 @@ class MarkdownCleaner:
        800 トークン単位に分割して各チャンクを LLM で整形し再結合する
     """
 
-    def clean(self, markdown: str, llm=None) -> str:
+    def clean(self, markdown: str, llm=None, *, filename: str = "unknown") -> str:
         """Markdown を整形する
 
         Args:
@@ -27,10 +33,21 @@ class MarkdownCleaner:
         Returns:
             整形済み Markdown テキスト
         """
-        cleaned = self._rule_based(markdown)
-        if llm is not None:
-            cleaned = self._llm_chunk_clean(cleaned, llm)
-        return cleaned
+        try:
+            cleaned = self._rule_based(markdown)
+            if llm is not None:
+                cleaned = self._llm_chunk_clean(cleaned, llm)
+            return cleaned
+        except MarkdownCleaningError:
+            raise
+        except Exception as e:
+            logger.error(
+                "Markdown cleaning failed: filename=%s detail=%s",
+                filename,
+                str(e),
+                exc_info=True,
+            )
+            raise MarkdownCleaningError(filename=filename, detail=str(e)) from e
 
     # ------------------------------------------------------------------
     # Rule-based cleaning
@@ -68,6 +85,8 @@ class MarkdownCleaner:
 
         splitter = SentenceSplitter(chunk_size=_CHUNK_SIZE, chunk_overlap=_CHUNK_OVERLAP)
         chunks = splitter.split_text(body)
+        if not chunks:
+            return header + body
 
         cleaned_chunks = []
         for chunk in chunks:
@@ -80,7 +99,8 @@ class MarkdownCleaner:
                 f"---\n{chunk}\n---"
             )
             response = llm.complete(prompt)
-            cleaned_chunks.append(response.text.strip())
+            response_text = getattr(response, "text", str(response))
+            cleaned_chunks.append(response_text.strip())
 
         return header + "\n\n".join(cleaned_chunks) + "\n"
 
