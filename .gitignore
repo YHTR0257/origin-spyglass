@@ -168,7 +168,7 @@ temp/
 *.local.py
 
 # vscode settings (settings.json は .vscode/* の negation で追跡)
-lakda.code-workspace
+spyglass.code-workspace
 
 # ========================================
 # LLM Models

@@ -5,7 +5,7 @@
 
 FILE=$(jq -r '.tool_input.file_path // empty' 2>/dev/null)
 
-[[ "$FILE" == */lakda/backend/* ]] || exit 0
+[[ "$FILE" == */origin-spyglass/backend/* ]] || exit 0
 
 echo ">>> backend file changed: $FILE"
 echo ">>> running backend tests in Docker..."

@@ -1,7 +1,3 @@
-import logging
-
-from fastapi import APIRouter, HTTPException, Request
-
 from app.schemas.openai import (
     ChatCompletionChoice,
     ChatCompletionRequest,
@@ -10,8 +6,11 @@ from app.schemas.openai import (
 )
 from app.utils.output_filter import check_sensitive, sanitize
 from app.utils.rate_limiter import chat_rate_limiter
+from fastapi import APIRouter, HTTPException, Request
 
-logger = logging.getLogger(__name__)
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(tags=["chat"])
 

@@ -2,6 +2,10 @@ import threading
 import time
 from collections import defaultdict
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 class RateLimiter:
     """Thread-safe sliding window rate limiter."""
@@ -18,6 +22,7 @@ class RateLimiter:
             cutoff = now - self.window_seconds
             self._timestamps[key] = [t for t in self._timestamps[key] if t > cutoff]
             if len(self._timestamps[key]) >= self.max_requests:
+                logger.debug("rate limit exceeded", extra={"key": key})
                 return False
             self._timestamps[key].append(now)
             return True

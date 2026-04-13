@@ -1,4 +1,6 @@
-# /translate — 指示の翻訳スキル
+name: translate
+# translate
+指示の翻訳スキル
 
 ユーザーの指示を構造化し、コードに触る前に「何を・どこで・どう直すか」を明確にする。
 翻訳結果をユーザーに提示し、確認を得てから次のステップに進む。
@@ -30,19 +32,19 @@
 
 ### Step 2: リポジトリの具体箇所への紐付け
 
-各論点を、lakda リポジトリの具体的なファイル・モジュールに紐付ける。
+各論点を、spyglass リポジトリの具体的なファイル・モジュールに紐付ける。
 
-**lakda のモジュール対応表**:
+**spyglass のモジュール対応表**:
 
 | 層 | モジュール | 主な責務 |
 |----|-----------|---------|
-| API | `backend/src/lakda/api/` | FastAPI エンドポイント、リクエスト受付 |
-| Service (ask) | `backend/src/lakda/services/ask/` | 質問応答ロジック、PropertyGraphStore 検索 |
-| Service (index) | `backend/src/lakda/services/index/` | インデキシング、Neo4j への保存 |
-| Service (documents) | `backend/src/lakda/services/documents/` | ドキュメント変換 (PDF/Word → Markdown) |
-| LLM | `backend/src/lakda/llm/` | LLMクライアント管理、プロバイダー接続 |
-| DB | `backend/src/lakda/db/` | Neo4j 接続管理 |
-| Models | `backend/src/lakda/models/` | Pydantic スキーマ |
+| API | `backend/src/origin_spyglass/api/` | FastAPI エンドポイント、リクエスト受付 |
+| Service (ask) | `backend/src/origin_spyglass/services/ask/` | 質問応答ロジック、PropertyGraphStore 検索 |
+| Service (index) | `backend/src/origin_spyglass/services/index/` | インデキシング、Neo4j への保存 |
+| Service (documents) | `backend/src/origin_spyglass/services/documents/` | ドキュメント変換 (PDF/Word → Markdown) |
+| LLM | `backend/src/origin_spyglass/llm/` | LLMクライアント管理、プロバイダー接続 |
+| DB | `backend/src/origin_spyglass/db/` | Neo4j 接続管理 |
+| Models | `backend/src/origin_spyglass/models/` | Pydantic スキーマ |
 | Frontend | `frontend/` | UI |
 | Config | `envs/` | Docker、環境設定 |
 | Tests | `backend/tests/`, `tests/` | ユニットテスト、統合テスト |
@@ -58,7 +60,7 @@
 - 問題の種類: 期待と異なる動作
 - エラー情報: なし
 - 技術的な問題文: retrieval.py の検索クエリ構築で、エンティティの部分一致検索ができていない
-- 対象ファイル: `backend/src/lakda/services/ask/retrieval.py`
+- 対象ファイル: `backend/src/origin_spyglass/services/ask/retrieval.py`
 
 ### 論点2: ...
 ```

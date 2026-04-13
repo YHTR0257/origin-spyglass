@@ -1,14 +1,53 @@
 services:
-  backend:
+  origin-spyglass-neo4j:
+    image: neo4j:${NEO4J_VERSION:-5}
+    container_name: ${NEO4J_CONTAINER_NAME}
+    ports:
+      - "${NEO4J_HTTP_PORT:-7474}:7474"
+      - "${NEO4J_BOLT_PORT:-7687}:7687"
+    environment:
+      - NEO4J_AUTH=${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-password}
+      - NEO4J_PLUGINS=${NEO4J_PLUGINS:-["apoc"]}
+      - NEO4J_APOC_EXPORT_FILE_ENABLED=${NEO4J_APOC_EXPORT_FILE_ENABLED:-true}
+      - NEO4J_APOC_IMPORT_FILE_ENABLED=${NEO4J_APOC_IMPORT_FILE_ENABLED:-true}
+      - NEO4J_APOC_IMPORT_FILE_USE_NEO4J_CONFIG=${NEO4J_APOC_IMPORT_FILE_USE_NEO4J_CONFIG:-true}
+    volumes:
+      - ./data/neo4j:/data/
+      - ./logs/neo4j:/logs/
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "cypher-shell -u ${NEO4J_USER:-neo4j} -p ${NEO4J_PASSWORD:-password} 'RETURN 1'",
+        ]
+      interval: ${DB_HEALTHCHECK_INTERVAL:-10s}
+      timeout: ${DB_HEALTHCHECK_TIMEOUT:-5s}
+      retries: ${DB_HEALTHCHECK_RETRIES:-5}
+
+  origin-spyglass-backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: llm-agent-backend
+    container_name: ${BACKEND_CONTAINER_NAME}
     ports:
       - "${BACKEND_PORT:-8000}:${BACKEND_PORT:-8000}"
     environment:
-      APP_NAME: ${APP_NAME:-llm-agent-boilerplate}
+      APP_NAME: ${APP_NAME}
       ENVIRONMENT: ${ENVIRONMENT:-docker}
+      MODE: ${MODE:-docker}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./backend:/app
+      - ./scripts/backend:/app/scripts
+    depends_on:
+      - ${NEO4J_CONTAINER_NAME}
+    networks:
+      - spyglass-network
+    deploy:
+      resources:
+        limits:
+          cpus: "${BACKEND_CPUS_LIMIT:-1}"
+          memory: "${BACKEND_MEMORY_LIMIT:-512M}"
     command:
       [
         "uv",
@@ -24,15 +63,26 @@ services:
       ]
     restart: unless-stopped
 
-  frontend:
+  origin-spyglass-frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: llm-agent-frontend
+    container_name: ${FRONTEND_CONTAINER_NAME}
     ports:
       - "${FRONTEND_PORT:-8080}:8080"
     environment:
-      OPENAI_API_BASE_URL: http://backend:${BACKEND_PORT:-8000}/v1
+      OPENAI_API_BASE_URL: http://${BACKEND_CONTAINER_NAME}:${BACKEND_PORT:-8000}/v1
     depends_on:
-      - backend
+      - ${BACKEND_CONTAINER_NAME}
+    networks:
+      - spyglass-network
+    deploy:
+      resources:
+        limits:
+          cpus: "${FRONTEND_CPUS_LIMIT:-1}"
+          memory: "${FRONTEND_MEMORY_LIMIT:-512M}"
     restart: unless-stopped
+
+networks:
+  spyglass-network:
+    driver: bridge
