@@ -1,4 +1,5 @@
 import socket
+from typing import Any
 
 import pytest
 
@@ -34,7 +35,7 @@ class _ErrorMarkItDown:
 
 
 class _BrokenLlm:
-    def complete(self, _prompt: str):
+    def complete(self, _prompt: str) -> Any:
         raise RuntimeError("llm failed")
 
 
@@ -42,7 +43,7 @@ def test_detect_format_rejects_unsupported_mime(monkeypatch: pytest.MonkeyPatch)
     converter = DocumentConverter()
     logged: dict[str, str] = {}
 
-    def _capture_error(message: str, *args, **_kwargs) -> None:
+    def _capture_error(message: str, *args: Any, **_kwargs: Any) -> None:
         logged["message"] = message % args
 
     monkeypatch.setattr(
@@ -220,7 +221,7 @@ def test_markdown_conversion_has_no_network_calls(monkeypatch: pytest.MonkeyPatc
     converter = DocumentConverter()
     state = {"called": False}
 
-    def _forbidden_connection(*_args, **_kwargs):
+    def _forbidden_connection(*_args: Any, **_kwargs: Any) -> None:
         state["called"] = True
         raise AssertionError("network access should not be used")
 

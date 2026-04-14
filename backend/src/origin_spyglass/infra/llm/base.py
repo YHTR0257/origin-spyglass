@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import TypeVar
+from typing import TypeVar, cast
 
 from llama_index.core.llms import LLM
 from pydantic import BaseModel
@@ -72,7 +72,7 @@ class LlamaIndexLlmClient(ABC):
         response = structured_llm.complete(prompt)
         if response.raw is None:
             raise LlmResponseParseError("レスポンスにデータが含まれていません")
-        return response.raw
+        return cast(T, response.raw)
 
     @abstractmethod
     def health_check(self) -> bool:

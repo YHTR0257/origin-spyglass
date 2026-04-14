@@ -1,6 +1,7 @@
 """Markdown 清書ロジック — ルールベース + チャンク別 LLM 整形"""
 
 import re
+from typing import Any
 
 from llama_index.core.node_parser import SentenceSplitter
 
@@ -23,7 +24,7 @@ class MarkdownCleaner:
        800 トークン単位に分割して各チャンクを LLM で整形し再結合する
     """
 
-    def clean(self, markdown: str, llm=None, *, filename: str = "unknown") -> str:
+    def clean(self, markdown: str, llm: Any = None, *, filename: str = "unknown") -> str:
         """Markdown を整形する
 
         Args:
@@ -80,7 +81,7 @@ class MarkdownCleaner:
     # LLM chunk cleaning
     # ------------------------------------------------------------------
 
-    def _llm_chunk_clean(self, text: str, llm) -> str:
+    def _llm_chunk_clean(self, text: str, llm: Any) -> str:
         header, body = _split_frontmatter(text)
 
         splitter = SentenceSplitter(chunk_size=_CHUNK_SIZE, chunk_overlap=_CHUNK_OVERLAP)

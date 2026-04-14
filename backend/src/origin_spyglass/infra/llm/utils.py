@@ -2,7 +2,7 @@
 
 import functools
 from collections.abc import Callable
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from .exceptions import (
     LlmAuthenticationError,
@@ -26,7 +26,7 @@ def map_llm_exceptions(func: Callable[..., T]) -> Callable[..., T]:
     """
 
     @functools.wraps(func)
-    def wrapper(*args, **kwargs) -> T:
+    def wrapper(*args: Any, **kwargs: Any) -> T:
         try:
             return func(*args, **kwargs)
         except (

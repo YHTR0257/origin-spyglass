@@ -1,8 +1,9 @@
 """LLMクライアントファクトリー・マネージャー"""
 
 from enum import Enum
-from typing import TypeVar
+from typing import Any, TypeVar, cast
 
+from llama_index.core.llms import LLM
 from pydantic import BaseModel
 
 from .base import LlamaIndexLlmClient
@@ -45,7 +46,7 @@ class LlmClientFactory:
         return mapped
 
     @staticmethod
-    def create(provider: LlmProvider | str, **kwargs) -> LlamaIndexLlmClient:
+    def create(provider: LlmProvider | str, **kwargs: Any) -> LlamaIndexLlmClient:
         """指定されたプロバイダーのLLMクライアントを生成する
 
         Args:
@@ -68,7 +69,7 @@ class LlmClientFactory:
         raise ValueError(f"サポートされていないプロバイダー: {provider}")
 
     @staticmethod
-    def create_embedding(provider: LlmProvider | str, **kwargs):
+    def create_embedding(provider: LlmProvider | str, **kwargs: Any) -> Any:
         """指定されたプロバイダーの埋め込みクライアントを生成する
 
         Args:
@@ -101,7 +102,7 @@ class LlmClientManager:
     def __init__(self) -> None:
         """LlmClientManagerを初期化する"""
         self._clients: dict[str, LlamaIndexLlmClient] = {}
-        self._embedding_clients: dict[str, object] = {}
+        self._embedding_clients: dict[str, Any] = {}
         self._current_llm_key: str | None = None
         self._current_embedding_key: str | None = None
 
@@ -116,7 +117,7 @@ class LlmClientManager:
         provider: LlmProvider | str,
         model: str,
         client: LlamaIndexLlmClient | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """チャットLLMクライアントを登録する
 
@@ -142,7 +143,7 @@ class LlmClientManager:
         provider: LlmProvider | str,
         model_name: str,
         client: object | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """embeddingクライアントを登録する
 
@@ -199,7 +200,7 @@ class LlmClientManager:
 
         return self._clients[self._current_llm_key]
 
-    def get_llm(self):
+    def get_llm(self) -> LLM:
         """RAG統合用に LlamaIndex LLM を取得する
 
         Returns:
@@ -207,7 +208,7 @@ class LlmClientManager:
         """
         return self.get_current_client().llm
 
-    def get_embed_model(self):
+    def get_embed_model(self) -> Any:
         """現在選択されているembeddingモデルを取得する
 
         Returns:
@@ -240,7 +241,7 @@ class LlmClientManager:
             response_modelのインスタンス
         """
         client = self.get_current_client()
-        return client.generate_response(prompt, response_model)
+        return cast(T, client.generate_response(prompt, response_model))
 
     def health_check_embedding(self) -> bool:
         """現在選択されている embedding クライアントのヘルスチェックを実行する
@@ -255,7 +256,7 @@ class LlmClientManager:
             return False
         health_fn = getattr(embed_client, "health_check", None)
         if health_fn is not None:
-            return health_fn()
+            return bool(health_fn())
         return True
 
     def health_check(
@@ -285,7 +286,7 @@ class LlmClientManager:
             embed_client = self._embedding_clients[key]
             health_fn = getattr(embed_client, "health_check", None)
             if health_fn is not None:
-                return health_fn()
+                return bool(health_fn())
             return True
         else:
             return False

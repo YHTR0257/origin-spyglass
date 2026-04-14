@@ -66,17 +66,17 @@ class RelationArchiverService:
         chunk_size: int = 256,
         chunk_overlap: int = 32,
         show_progress: bool = False,
-    ):
+    ) -> None:
         """ """
         if _is_xml_prefixed(markdown_text):
             logger.info("XML prefix detected, Parsing XML and saving to Neo4j...")
 
         raise NotImplementedError
 
-    def complete_metadata(self, markdown):
+    def complete_metadata(self, markdown: str) -> None:
         pass
 
-    def extract_metadata(self, markdown):
+    def extract_metadata(self, markdown: str) -> None:
         pass
 
     def _merge_metadata_nodes(self, metadata: DocumentMetadata) -> None:

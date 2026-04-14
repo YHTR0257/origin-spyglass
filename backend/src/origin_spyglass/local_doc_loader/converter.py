@@ -3,6 +3,7 @@
 import json
 import re
 import tempfile
+from typing import Any
 
 import magic
 import yaml
@@ -179,7 +180,8 @@ class FrontmatterConverter:
                     filename=filename,
                     detail="Frontmatter YAML must be a mapping",
                 )
-            tags = data.get("tags") if isinstance(data.get("tags"), list) else []
+            _raw_tags = data.get("tags")
+            tags: list[Any] = _raw_tags if isinstance(_raw_tags, list) else []
             meta = FrontmatterMeta(
                 domain=str(data.get("domain", "general")),
                 tags=[str(tag) for tag in tags],

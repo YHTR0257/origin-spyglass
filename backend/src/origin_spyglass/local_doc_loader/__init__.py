@@ -5,13 +5,14 @@
 """
 
 from datetime import UTC, datetime
+from typing import Any
 
 from .cleaner import MarkdownCleaner
 from .converter import DocumentConverter, FrontmatterConverter
 from .types import FrontmatterMeta, LocalDocumentInput, LocalDocumentOutput
 
 
-def load_document(document: LocalDocumentInput, llm=None) -> LocalDocumentOutput:
+def load_document(document: LocalDocumentInput, llm: Any = None) -> LocalDocumentOutput:
     """単一ドキュメントを Markdown + Frontmatter へ変換する。"""
     converter = DocumentConverter()
     frontmatter_converter = FrontmatterConverter()
