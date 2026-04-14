@@ -14,7 +14,8 @@ flowchart TD
     subgraph NodeLayer ["ノード実行層"]
         subgraph Gatherer ["Gatherer"]
             LocalDocLoader["Local Doc Loader"]
-            SemanticRetriever["Semantic Retriever"]
+            IdeaRetriever["Idea Retriever"]
+            DocRelationRetriever["Doc-Relation Retriever"]
             RelationExplorer["Relation Explorer"]
             APIFetcher["API Fetcher"]
             VisualEvidenceExtractor["Visual Evidence Extractor"]
@@ -90,7 +91,8 @@ flowchart TD
 | Node 分類               | Node 名                           | 責務と役割                                                   | 主要ツール                      |
 | :-------------------- | :------------------------------- | :------------------------------------------------------ | :------------------------- |
 | **Gatherer (Local)**  | **Local Doc Loader**             | ローカルの PDF/MD/JSON/HTML をパースしテキスト化。形式別の前処理（OCR等）を行う。     | MarkItDown / PyMuPDF       |
-| **Gatherer (Vector)** | **Semantic Retriever**           | Postgres(pgvector) , Neo4jからテーマに関連するセマンティックな断片を検索・取得する。 | LlamaIndex / PGVectorStore |
+| **Gatherer (graph)** | **Idea Relation Retriever**           | Neo4jからテーマに関連する概念(idea)を検索・取得する。 | LlamaIndex / Neo4j |
+| **Gatherer (graph)** | **Doc-Relation Retriever**           | Neo4jから文書間の引用関係や共起関係を検索・取得する。 | LlamaIndex / Neo4j |
 | **Gatherer (Graph)**  | **Relation Explorer**            | Neo4J から引用関係、共起概念、著者ネットワークを取得する。                        | Cypher Query / Neo4J       |
 | **Gatherer (Online)** | **API Fetcher**                  | arXiv 等の外部 API から最新の論文メタデータやアブストラクトを収集する。               | arxiv-python / API         |
 | **Gatherer (Vision)** | **Visual Evidence Extractor**    | 論文内の図表、グラフ、実験画像から情報を抽出。画像内のテキストや数値を構造化データに変換する。         | Vision LLM (GPT-4o/Claude) |
