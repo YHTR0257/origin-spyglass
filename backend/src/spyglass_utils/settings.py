@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     app_name: str = "origin-spyglass"
     environment: str = "local"
     model_id: str = "llm-agent"
+    triplet_schema_path: str = "config/triplet_schema.yml"
 
     model_config = SettingsConfigDict(
         env_file=".env",

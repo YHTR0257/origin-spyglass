@@ -140,6 +140,7 @@ origin-spyglass/
 - Preserve backward-compatible API contracts unless explicitly changed.
 - Fail safely: on external dependency failure, return actionable errors.
 - Use typed schemas for node inputs/outputs.
+- Follow node structure and best practices: [`docs/nodes/node-structure-base.md`](docs/nodes/node-structure-base.md)
 
 ## Tooling notes
 

@@ -1,0 +1,19 @@
+entities:
+  - User
+  - Product
+  - Organization
+  - Event
+relations:
+  - WORKS_FOR
+  - PARTICIPATED_IN
+  - PURCHASED
+  - LOCATED_IN
+validation_schema:
+  User:
+    - WORKS_FOR
+    - PARTICIPATED_IN
+    - PURCHASED
+  Organization:
+    - LOCATED_IN
+  Event:
+    - PARTICIPATED_IN
