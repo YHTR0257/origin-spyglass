@@ -24,6 +24,25 @@ services:
       timeout: ${DB_HEALTHCHECK_TIMEOUT:-5s}
       retries: ${DB_HEALTHCHECK_RETRIES:-5}
 
+  origin-spyglass-postgres:
+    image: postgres:${POSTGRES_VERSION:-16}
+    container_name: ${POSTGRES_CONTAINER_NAME:-origin-spyglass-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-spyglass}
+      POSTGRES_USER: ${POSTGRES_USER:-spyglass}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-spyglass}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-spyglass} -d ${POSTGRES_DB:-spyglass}"]
+      interval: ${DB_HEALTHCHECK_INTERVAL:-10s}
+      timeout: ${DB_HEALTHCHECK_TIMEOUT:-5s}
+      retries: ${DB_HEALTHCHECK_RETRIES:-5}
+    networks:
+      - spyglass-network
+
   origin-spyglass-backend:
     build:
       context: ./backend
@@ -36,11 +55,13 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-docker}
       MODE: ${MODE:-docker}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://spyglass:spyglass@origin-spyglass-postgres:5432/spyglass}
     volumes:
       - ./backend:/app
       - ./scripts/backend:/app/scripts
     depends_on:
       - ${NEO4J_CONTAINER_NAME}
+      - ${POSTGRES_CONTAINER_NAME:-origin-spyglass-postgres}
     networks:
       - spyglass-network
     deploy:
