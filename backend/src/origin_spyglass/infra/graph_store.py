@@ -35,9 +35,9 @@ class Neo4jGraphStoreManager:
             username: Neo4j ユーザー名。None の場合は環境変数 NEO4J_USER から取得
             password: Neo4j パスワード。None の場合は環境変数 NEO4J_PASSWORD から取得
         """
-        self.url = url or os.getenv("DATABASE_URL_BOLT", "bolt://localhost:7687")
-        self.username = username or os.getenv("NEO4J_USER", "neo4j")
-        self.password = password or os.getenv("NEO4J_PASSWORD", "password")
+        self.url: str = url or os.getenv("DATABASE_URL_BOLT") or "bolt://localhost:7687"
+        self.username: str = username or os.getenv("NEO4J_USER") or "neo4j"
+        self.password: str = password or os.getenv("NEO4J_PASSWORD") or "password"
         self._store: Neo4jPropertyGraphStore | None = None
 
     @property

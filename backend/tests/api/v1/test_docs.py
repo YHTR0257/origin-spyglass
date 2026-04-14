@@ -3,8 +3,9 @@
 実際の PostgreSQL への接続が不要なよう、セッション依存をモックする。
 """
 
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from datetime import date
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
@@ -64,13 +65,13 @@ def _patch_service(monkeypatch: pytest.MonkeyPatch) -> None:
     """DocRelationshipPersisterService をモックして DB 接続を回避する"""
     from origin_spyglass.doc_relationship_persister import service as svc_module
 
-    async def _persist(self, input):
+    async def _persist(self: Any, input: Any) -> Any:
         return _SAMPLE_OUTPUT
 
-    async def _list(self, domain=None, limit=50, offset=0):
+    async def _list(self: Any, domain: Any = None, limit: int = 50, offset: int = 0) -> Any:
         return [_SAMPLE_OUTPUT]
 
-    async def _get(self, doc_id):
+    async def _get(self: Any, doc_id: Any) -> Any:
         if doc_id == "report":
             return _SAMPLE_OUTPUT
         return None
@@ -83,7 +84,7 @@ def _patch_service(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _clear_overrides():
+def _clear_overrides() -> Generator[None, None, None]:
     yield
     app.dependency_overrides.clear()
 
@@ -142,7 +143,7 @@ def test_persist_document_duplicate_returns_409(monkeypatch: pytest.MonkeyPatch)
     from origin_spyglass.doc_relationship_persister import DuplicateDocumentError
     from origin_spyglass.doc_relationship_persister import service as svc_module
 
-    async def _raise_dup(self, input):  # noqa: ANN001
+    async def _raise_dup(self: Any, input: Any) -> Any:  # noqa: ANN001
         raise DuplicateDocumentError(doc_id="abc-123", title="My Report", year=2026)
 
     monkeypatch.setattr(svc_module.DocRelationshipPersisterService, "persist", _raise_dup)
@@ -156,7 +157,7 @@ def test_persist_document_metadata_error_returns_422(monkeypatch: pytest.MonkeyP
     from origin_spyglass.doc_relationship_persister import MetadataValidationError
     from origin_spyglass.doc_relationship_persister import service as svc_module
 
-    async def _raise_validation(self, input):  # noqa: ANN001
+    async def _raise_validation(self: Any, input: Any) -> Any:  # noqa: ANN001
         raise MetadataValidationError(field="title", reason="title must not be empty")
 
     monkeypatch.setattr(svc_module.DocRelationshipPersisterService, "persist", _raise_validation)

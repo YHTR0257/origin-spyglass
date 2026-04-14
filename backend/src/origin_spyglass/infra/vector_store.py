@@ -90,7 +90,7 @@ class VectorStoreManager:
         Args:
             url: PostgreSQL 接続 URL。None の場合は環境変数 DATABASE_URL から取得
         """
-        self.url = url or os.getenv("DATABASE_URL", _DEFAULT_DATABASE_URL)
+        self.url: str = url or os.getenv("DATABASE_URL") or _DEFAULT_DATABASE_URL
         self._engine = create_async_engine(self.url, echo=False)
         self._session_factory = async_sessionmaker(
             self._engine, expire_on_commit=False, class_=AsyncSession

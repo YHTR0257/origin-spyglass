@@ -4,6 +4,7 @@
 """
 
 import uuid
+from collections.abc import AsyncGenerator
 from datetime import date
 
 import pytest
@@ -25,7 +26,7 @@ _SESSION_FACTORY = async_sessionmaker(_ENGINE, expire_on_commit=False, class_=As
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def _setup_db():
+async def _setup_db() -> AsyncGenerator[None, None]:
     """各テスト前にテーブルを作成し、テスト後に破棄する"""
     async with _ENGINE.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

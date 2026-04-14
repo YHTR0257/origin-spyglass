@@ -5,6 +5,7 @@
 
 import time
 import uuid
+from collections.abc import AsyncGenerator
 from datetime import UTC, date, datetime
 
 import pytest
@@ -19,7 +20,7 @@ _SESSION_FACTORY = async_sessionmaker(_ENGINE, expire_on_commit=False, class_=As
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def _setup_db() -> None:
+async def _setup_db() -> AsyncGenerator[None, None]:
     async with _ENGINE.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield

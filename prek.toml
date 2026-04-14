@@ -14,7 +14,9 @@ hooks = [
 repo = "https://github.com/astral-sh/ruff-pre-commit"
 rev = "v0.11.4"
 hooks = [
-  { id = "ruff", args = ["--fix"], files = "^backend/" },
+  { id = "ruff", args = [
+    "--fix",
+  ], files = "^backend/" },
   { id = "ruff-format", files = "^backend/" },
 ]
 
@@ -22,21 +24,18 @@ hooks = [
 [[repos]]
 repo = "https://github.com/crate-ci/typos"
 rev = "v1.31.1"
-hooks = [
-  { id = "typos" },
-]
+hooks = [{ id = "typos" }]
 
 # シークレット検出 (全体)
 [[repos]]
 repo = "https://github.com/gitleaks/gitleaks"
 rev = "v8.24.0"
-hooks = [
-  { id = "gitleaks" },
-]
+hooks = [{ id = "gitleaks" }]
 
 # ESLint (frontend/ only)
 [[repos]]
 repo = "local"
 hooks = [
+  { id = "mypy", name = "mypy", entry = "bash -c 'cd backend && uv run mypy src tests'", language = "system", files = "^backend/.*\\.py$", pass_filenames = false },
   { id = "eslint", name = "eslint", entry = "bash -c 'cd frontend && pnpm exec eslint --max-warnings=0 .'", language = "system", files = "^frontend/.*\\.[jt]sx?$", pass_filenames = false },
 ]
