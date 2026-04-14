@@ -1,103 +1,118 @@
-"""STEP3: LLM トリプレット抽出のテスト
+"""STEP3: スキーマ制約付き extractor 構築のテスト。
 
-SimpleLLMPathExtractor は LLM を呼ぶため、patch で差し替えてテストする。
-実装では extractor(nodes)（TransformComponent.__call__）を使うため、
-モック時は instance.return_value / instance.side_effect で制御する点に注意。
+SchemaLLMPathExtractor の初期化引数と例外変換を検証する。
 """
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from origin_spyglass.idea_relation_persister.extractor import extract_triplets
+from origin_spyglass.idea_relation_persister.extractor import (
+    TripletSchemaConfig,
+    build_kg_extractor,
+)
 from origin_spyglass.idea_relation_persister.types import ExtractionFailed
 
 from ._helpers import make_valid_input
 
-try:
-    from llama_index.core.schema import TextNode  # type: ignore[import-untyped]
-except Exception:
-    # llama-index が環境にない場合は MagicMock で代替する
-    TextNode = None  # type: ignore[assignment,misc]
+
+def _schema() -> TripletSchemaConfig:
+    return TripletSchemaConfig(
+        entities=["User", "Product", "Organization", "Event"],
+        relations=["WORKS_FOR", "PARTICIPATED_IN", "PURCHASED", "LOCATED_IN"],
+        validation_schema={
+            "User": ["WORKS_FOR", "PARTICIPATED_IN", "PURCHASED"],
+            "Organization": ["LOCATED_IN"],
+            "Event": ["PARTICIPATED_IN"],
+        },
+    )
 
 
-def _make_nodes() -> list:  # type: ignore[type-arg]
-    if TextNode is None:
-        return [MagicMock()]
-    return [TextNode(text="Alice knows Bob.", metadata={"doc_id": "doc-001"})]
-
-
-def test_extract_triplets_returns_nodes() -> None:
-    nodes = _make_nodes()
+def test_build_kg_extractor_returns_schema_extractor() -> None:
     mock_llm = MagicMock()
 
-    with patch(
-        "origin_spyglass.idea_relation_persister.extractor.SimpleLLMPathExtractor"
-    ) as MockExtractor:
+    with (
+        patch(
+            "origin_spyglass.idea_relation_persister.extractor._load_triplet_schema",
+            return_value=_schema(),
+        ),
+        patch(
+            "origin_spyglass.idea_relation_persister.extractor.SchemaLLMPathExtractor"
+        ) as MockExtractor,
+    ):
         instance = MockExtractor.return_value
-        # extractor(nodes) は __call__ を呼ぶので return_value で戻り値を設定する
-        instance.return_value = nodes
-        result = extract_triplets(nodes, mock_llm, make_valid_input())
+        result = build_kg_extractor(mock_llm, make_valid_input())
 
-    assert result == nodes
-    # __call__ が nodes を引数に一度呼ばれたことを確認
-    instance.assert_called_once_with(nodes)
+    assert result is instance
 
 
-def test_extract_triplets_initializes_extractor_with_llm() -> None:
-    # SimpleLLMPathExtractor のコンストラクタに llm と num_workers が正しく渡るか確認
-    nodes = _make_nodes()
+def test_build_kg_extractor_initializes_extractor_with_schema() -> None:
+    # YAML 由来スキーマが SchemaLLMPathExtractor に渡ること
     mock_llm = MagicMock()
 
-    with patch(
-        "origin_spyglass.idea_relation_persister.extractor.SimpleLLMPathExtractor"
-    ) as MockExtractor:
-        instance = MockExtractor.return_value
-        instance.extract.return_value = nodes
-        extract_triplets(nodes, mock_llm, make_valid_input())
+    with (
+        patch(
+            "origin_spyglass.idea_relation_persister.extractor._load_triplet_schema",
+            return_value=_schema(),
+        ),
+        patch(
+            "origin_spyglass.idea_relation_persister.extractor.SchemaLLMPathExtractor"
+        ) as MockExtractor,
+    ):
+        build_kg_extractor(mock_llm, make_valid_input())
 
     call_kwargs = MockExtractor.call_args.kwargs
     assert call_kwargs["llm"] is mock_llm
-    # num_workers=1 は FastAPI async context でのスレッド競合を防ぐため固定
+    assert call_kwargs["possible_entities"] == _schema().entities
+    assert call_kwargs["possible_relations"] == _schema().relations
+    assert call_kwargs["kg_validation_schema"] == _schema().validation_schema
+    assert call_kwargs["strict"] is True
     assert call_kwargs["num_workers"] == 1
 
 
-def test_extract_triplets_prompt_contains_domain() -> None:
-    # frontmatter.domain がプロンプトに埋め込まれていること
-    nodes = _make_nodes()
+def test_build_kg_extractor_prompt_contains_frontmatter_hints() -> None:
+    # frontmatter 情報が抽出プロンプトに埋め込まれていること
+    input_ = make_valid_input()
 
-    with patch(
-        "origin_spyglass.idea_relation_persister.extractor.SimpleLLMPathExtractor"
-    ) as MockExtractor:
-        instance = MockExtractor.return_value
-        instance.extract.return_value = nodes
-        extract_triplets(nodes, MagicMock(), make_valid_input())
+    with (
+        patch(
+            "origin_spyglass.idea_relation_persister.extractor._load_triplet_schema",
+            return_value=_schema(),
+        ),
+        patch(
+            "origin_spyglass.idea_relation_persister.extractor.SchemaLLMPathExtractor"
+        ) as MockExtractor,
+    ):
+        build_kg_extractor(MagicMock(), input_)
 
     call_kwargs = MockExtractor.call_args.kwargs
     assert "tech" in call_kwargs["extract_prompt"]
+    assert "Test Doc" in call_kwargs["extract_prompt"]
 
 
-def test_extract_triplets_raises_extraction_failed_on_error() -> None:
-    # コンストラクタ自体が失敗した場合も ExtractionFailed に変換される
-    nodes = _make_nodes()
+def test_build_kg_extractor_raises_extraction_failed_on_constructor_error() -> None:
+    # コンストラクタ自体の失敗は ExtractionFailed に変換される
 
-    with patch(
-        "origin_spyglass.idea_relation_persister.extractor.SimpleLLMPathExtractor"
-    ) as MockExtractor:
+    with (
+        patch(
+            "origin_spyglass.idea_relation_persister.extractor._load_triplet_schema",
+            return_value=_schema(),
+        ),
+        patch(
+            "origin_spyglass.idea_relation_persister.extractor.SchemaLLMPathExtractor"
+        ) as MockExtractor,
+    ):
         MockExtractor.side_effect = RuntimeError("LLM unavailable")
         with pytest.raises(ExtractionFailed):
-            extract_triplets(nodes, MagicMock(), make_valid_input())
+            build_kg_extractor(MagicMock(), make_valid_input())
 
 
-def test_extract_triplets_raises_extraction_failed_on_extract_error() -> None:
-    # extractor(nodes)（__call__）が失敗した場合も ExtractionFailed に変換される
-    nodes = _make_nodes()
+def test_build_kg_extractor_propagates_schema_load_error() -> None:
+    # 設定読込失敗も ExtractionFailed として扱う
 
     with patch(
-        "origin_spyglass.idea_relation_persister.extractor.SimpleLLMPathExtractor"
-    ) as MockExtractor:
-        instance = MockExtractor.return_value
-        # extractor(nodes) → __call__ の side_effect を設定する
-        instance.side_effect = ValueError("parse error")
+        "origin_spyglass.idea_relation_persister.extractor._load_triplet_schema",
+        side_effect=ExtractionFailed("schema invalid"),
+    ):
         with pytest.raises(ExtractionFailed):
-            extract_triplets(nodes, MagicMock(), make_valid_input())
+            build_kg_extractor(MagicMock(), make_valid_input())

@@ -29,7 +29,8 @@ def _make_pipeline() -> IdeaRelationPersisterPipeline:
 
 
 def test_pipeline_run_calls_all_steps() -> None:
-    # STEP1〜5 が全て呼ばれること（validate → structure → extract → persist → express の順）を確認
+    # STEP1〜5 が全て呼ばれること
+    # （validate → structure → build_extractor → persist → express）を確認
     pipeline = _make_pipeline()
     input_ = make_valid_input()
 
@@ -38,13 +39,15 @@ def test_pipeline_run_calls_all_steps() -> None:
         patch(
             "origin_spyglass.idea_relation_persister.pipeline.structure_document"
         ) as mock_structure,
-        patch("origin_spyglass.idea_relation_persister.pipeline.extract_triplets") as mock_extract,
+        patch(
+            "origin_spyglass.idea_relation_persister.pipeline.build_kg_extractor"
+        ) as mock_extract,
         patch("origin_spyglass.idea_relation_persister.pipeline.persist_to_graph") as mock_persist,
         patch("origin_spyglass.idea_relation_persister.pipeline.build_output") as mock_express,
     ):
         mock_validate.return_value = input_
         mock_structure.return_value = []
-        mock_extract.return_value = []
+        mock_extract.return_value = MagicMock()
         mock_persist.return_value = MagicMock()
         mock_express.return_value = make_valid_output()
 
@@ -73,8 +76,8 @@ def test_pipeline_run_returns_output() -> None:
             return_value=[],
         ),
         patch(
-            "origin_spyglass.idea_relation_persister.pipeline.extract_triplets",
-            return_value=[],
+            "origin_spyglass.idea_relation_persister.pipeline.build_kg_extractor",
+            return_value=MagicMock(),
         ),
         patch(
             "origin_spyglass.idea_relation_persister.pipeline.persist_to_graph",
@@ -116,7 +119,7 @@ def test_pipeline_propagates_extraction_failed() -> None:
             return_value=[],
         ),
         patch(
-            "origin_spyglass.idea_relation_persister.pipeline.extract_triplets",
+            "origin_spyglass.idea_relation_persister.pipeline.build_kg_extractor",
             side_effect=ExtractionFailed("LLM error"),
         ),
     ):
@@ -138,8 +141,8 @@ def test_pipeline_propagates_graph_store_unavailable() -> None:
             return_value=[],
         ),
         patch(
-            "origin_spyglass.idea_relation_persister.pipeline.extract_triplets",
-            return_value=[],
+            "origin_spyglass.idea_relation_persister.pipeline.build_kg_extractor",
+            return_value=MagicMock(),
         ),
         patch(
             "origin_spyglass.idea_relation_persister.pipeline.persist_to_graph",
@@ -164,8 +167,8 @@ def test_pipeline_propagates_persist_failed() -> None:
             return_value=[],
         ),
         patch(
-            "origin_spyglass.idea_relation_persister.pipeline.extract_triplets",
-            return_value=[],
+            "origin_spyglass.idea_relation_persister.pipeline.build_kg_extractor",
+            return_value=MagicMock(),
         ),
         patch(
             "origin_spyglass.idea_relation_persister.pipeline.persist_to_graph",

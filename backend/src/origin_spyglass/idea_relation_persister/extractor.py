@@ -1,34 +1,74 @@
-"""STEP3: LLM トリプレット抽出"""
+"""STEP3: スキーマ制約付き Extractor 構築"""
 
-from llama_index.core.indices.property_graph import (
-    SimpleLLMPathExtractor,  # type: ignore[import-untyped]
+from functools import lru_cache
+from pathlib import Path
+from typing import Any, cast
+
+import yaml
+from llama_index.core.indices.property_graph import (  # type: ignore[import-untyped]
+    SchemaLLMPathExtractor,
 )
 from llama_index.core.llms import LLM  # type: ignore[import-untyped]
-from llama_index.core.schema import TextNode  # type: ignore[import-untyped]
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from yaml import YAMLError
 
 from spyglass_utils.logging import get_logger
+from spyglass_utils.settings import get_settings
 
 from .types import ExtractionFailed, IdeaFrontmatterMeta, ValidatedIdeaRelationInput
 
 _logger = get_logger(__name__)
 
-# frontmatter ヒントを埋め込んだ日本語抽出プロンプトのテンプレート。
-# {text} は SimpleLLMPathExtractor が実行時に各ノードのテキストに置き換える。
+# frontmatter ヒントを埋め込んだ日本語抽出プロンプト。
+# {text} と {max_triplets_per_chunk} は SchemaLLMPathExtractor が実行時に展開する。
 _PROMPT_TEMPLATE = """\
-以下のテキストから、知識グラフ用の (主語, 述語, 目的語) トリプレットを抽出してください。
-意味のある事実関係のみを対象とし、Markdown の記号は含めないでください。
+次のテキストから、知識グラフ用のトリプレットを抽出してください。
+スキーマ外の型・関係は出力せず、事実関係のみを抽出してください。
 
 ドキュメントのコンテキスト:
 - ドメイン: {domain}
 - タイトル: {title}
 - タグ: {tags}
 
+最大抽出件数: {max_triplets_per_chunk}
+
 テキスト:
 {text}
-
-抽出結果は JSON 配列で返してください。
-各要素は {{"subject": "...", "predicate": "...", "object": "..."}} の形式にしてください。
 """
+
+
+class TripletSchemaConfig(BaseModel):
+    """YAML から読み込むトリプレット許可スキーマ。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    entities: list[str] = Field(min_length=1)
+    relations: list[str] = Field(min_length=1)
+    validation_schema: dict[str, list[str]]
+
+    @model_validator(mode="after")
+    def _validate_consistency(self) -> "TripletSchemaConfig":
+        entity_set = set(self.entities)
+        relation_set = set(self.relations)
+
+        unknown_entities = sorted(set(self.validation_schema) - entity_set)
+        if unknown_entities:
+            joined = ", ".join(unknown_entities)
+            raise ValueError(f"validation_schema has unknown entities: {joined}")
+
+        unknown_relations = sorted(
+            {
+                relation
+                for allowed_relations in self.validation_schema.values()
+                for relation in allowed_relations
+                if relation not in relation_set
+            }
+        )
+        if unknown_relations:
+            joined = ", ".join(unknown_relations)
+            raise ValueError(f"validation_schema has unknown relations: {joined}")
+
+        return self
 
 
 def _build_prompt(frontmatter: IdeaFrontmatterMeta) -> str:
@@ -40,37 +80,69 @@ def _build_prompt(frontmatter: IdeaFrontmatterMeta) -> str:
     )
 
 
-def extract_triplets(
-    nodes: list[TextNode],
+def _resolve_schema_path() -> Path:
+    configured_path = Path(get_settings().triplet_schema_path)
+    if configured_path.is_absolute():
+        return configured_path
+
+    repo_root = Path(__file__).resolve().parents[4]
+    return repo_root / configured_path
+
+
+@lru_cache(maxsize=1)
+def _load_triplet_schema() -> TripletSchemaConfig:
+    path = _resolve_schema_path()
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except OSError as exc:
+        raise ExtractionFailed(f"triplet schema file is not readable: {path}") from exc
+    except YAMLError as exc:
+        raise ExtractionFailed(f"triplet schema yaml is invalid: {path}") from exc
+
+    if not isinstance(raw, dict):
+        raise ExtractionFailed("triplet schema yaml must be a mapping")
+
+    try:
+        return TripletSchemaConfig.model_validate(raw)
+    except ValidationError as exc:
+        raise ExtractionFailed(f"triplet schema validation failed: {exc}") from exc
+
+
+def build_kg_extractor(
     llm: LLM,
     input: ValidatedIdeaRelationInput,
-) -> list[TextNode]:
-    """STEP3: 各ノードから (subject, predicate, object) トリプレットを抽出する。
+) -> SchemaLLMPathExtractor:
+    """STEP3: スキーマ制約付きの KG extractor を構築する。
 
-    SimpleLLMPathExtractor を使用して LLM にトリプレット抽出を依頼する。
-    frontmatter の domain / title / tags を抽出ヒントとしてプロンプトに注入する。
+    YAML 定義された entities / relations / validation_schema を使って
+    SchemaLLMPathExtractor を生成する。strict は常時 True で固定する。
 
     Args:
-        nodes: STEP2 で構造化された TextNode リスト
         llm: LlamaIndex LLM インスタンス
         input: バリデーション済み入力（frontmatter ヒント参照用）
 
     Returns:
-        トリプレット情報が付与された TextNode リスト
+        PropertyGraphIndex.from_documents に渡す SchemaLLMPathExtractor
 
     Raises:
-        ExtractionFailed: LLM 呼び出しまたはパースが失敗した場合
+        ExtractionFailed: 設定読込や extractor 構築に失敗した場合
     """
     try:
-        extractor = SimpleLLMPathExtractor(
+        schema = _load_triplet_schema()
+        return SchemaLLMPathExtractor(
             llm=llm,
-            max_paths_per_chunk=10,
+            # SchemaLLMPathExtractor の型注釈は実装より厳しく、
+            # list[str] / dict[str, list[str]] を受け取れる実装と不整合があるため cast する。
+            possible_entities=cast(Any, schema.entities),
+            possible_relations=cast(Any, schema.relations),
+            kg_validation_schema=cast(Any, schema.validation_schema),
+            strict=True,
+            max_triplets_per_chunk=10,
             num_workers=1,
             extract_prompt=_build_prompt(input.frontmatter),
         )
-        # __call__ は TransformComponent の公開 sync API
-        enriched: list[TextNode] = extractor(nodes)  # type: ignore[attr-defined,assignment]
-        return enriched
+    except ExtractionFailed:
+        raise
     except Exception as exc:
-        _logger.error("Triplet extraction failed: %s", exc)
-        raise ExtractionFailed(f"LLM triplet extraction failed: {exc}") from exc
+        _logger.error("KG extractor build failed: %s", exc)
+        raise ExtractionFailed(f"KG extractor build failed: {exc}") from exc

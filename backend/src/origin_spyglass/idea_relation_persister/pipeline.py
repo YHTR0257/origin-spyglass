@@ -8,7 +8,7 @@ from origin_spyglass.infra.graph_store import Neo4jGraphStoreManager
 from spyglass_utils.logging import get_logger
 
 from .express import build_output
-from .extractor import extract_triplets
+from .extractor import build_kg_extractor
 from .persist import persist_to_graph
 from .structure import structure_document
 from .types import IdeaRelationPersisterInput, IdeaRelationPersisterOutput
@@ -38,7 +38,7 @@ class IdeaRelationPersisterPipeline:
         Steps:
             STEP1: validate()          — IdeaRelationValidationError on failure
             STEP2: structure_document() — TextNode リストを生成
-            STEP3: extract_triplets()  — ExtractionFailed on LLM error
+            STEP3: build_kg_extractor() — ExtractionFailed on schema/LLM config error
             STEP4: persist_to_graph()  — GraphStoreUnavailable / PersistFailed
             STEP5: build_output()      — always succeeds (best-effort counting)
 
@@ -57,11 +57,17 @@ class IdeaRelationPersisterPipeline:
         _logger.debug("STEP2 structured %d nodes doc_id=%s", len(nodes), input.doc_id)
 
         # STEP3
-        enriched_nodes = extract_triplets(nodes, self._llm, validated)
-        _logger.debug("STEP3 extraction complete doc_id=%s", input.doc_id)
+        kg_extractor = build_kg_extractor(self._llm, validated)
+        _logger.debug("STEP3 schema extractor ready doc_id=%s", input.doc_id)
 
         # STEP4
-        index = persist_to_graph(enriched_nodes, validated, self._store_manager, self._llm)
+        index = persist_to_graph(
+            nodes,
+            validated,
+            self._store_manager,
+            self._llm,
+            kg_extractor,
+        )
         _logger.info("STEP4 persisted to Neo4j doc_id=%s", input.doc_id)
 
         # STEP5

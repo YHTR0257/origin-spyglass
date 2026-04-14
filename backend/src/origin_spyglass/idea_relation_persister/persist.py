@@ -1,10 +1,13 @@
 """STEP4: Neo4j 永続化"""
 
 from llama_index.core import Document, PropertyGraphIndex  # type: ignore[import-untyped]
+from llama_index.core.indices.property_graph import (  # type: ignore[import-untyped]
+    SchemaLLMPathExtractor,
+)
 from llama_index.core.llms import LLM  # type: ignore[import-untyped]
 from llama_index.core.schema import TextNode  # type: ignore[import-untyped]
 
-from origin_spyglass.infra.graph_store import Neo4jGraphStoreManager, PropertyGraphStore
+from origin_spyglass.infra.graph_store import Neo4jGraphStoreManager
 from spyglass_utils.logging import get_logger
 
 from .types import GraphStoreUnavailable, PersistFailed, ValidatedIdeaRelationInput
@@ -23,6 +26,7 @@ def persist_to_graph(
     input: ValidatedIdeaRelationInput,
     store_manager: Neo4jGraphStoreManager,
     llm: LLM,
+    kg_extractor: SchemaLLMPathExtractor,
 ) -> PropertyGraphIndex:
     """STEP4: 抽出済みノード・エッジを Neo4j に upsert する。
 
@@ -34,6 +38,7 @@ def persist_to_graph(
         input: バリデーション済み入力
         store_manager: Neo4jGraphStoreManager インスタンス
         llm: LlamaIndex LLM インスタンス（PropertyGraphIndex に渡す）
+        kg_extractor: STEP3 で構築した SchemaLLMPathExtractor
 
     Returns:
         書き込み済みの PropertyGraphIndex
@@ -56,11 +61,10 @@ def persist_to_graph(
     ]
 
     try:
-        pg_store = PropertyGraphStore(store_manager)
-        index = PropertyGraphIndex.from_documents(
+        index = store_manager.index_documents(
             docs,
-            property_graph_store=pg_store.graph_store,
             llm=llm,
+            kg_extractors=[kg_extractor],
             show_progress=input.show_progress,
         )
         return index
