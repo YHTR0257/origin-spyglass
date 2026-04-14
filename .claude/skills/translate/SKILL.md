@@ -22,7 +22,7 @@ name: translate
 
 | 項目 | 内容 |
 |------|------|
-| **対象層** | API / Service / LLM / DB / Frontend / 不明 |
+| **対象層** | API / Orchestration / Node / Tool-Integration / Infra / Cross-Cutting / Frontend / 不明 |
 | **スコープ** | 単一ファイル / 複数ファイル（同一モジュール内） / モジュール横断 |
 | **問題の種類** | エラーが出る / 期待と異なる動作 / 未実装 / リファクタリング / 調査 |
 | **エラー情報** | エラーメッセージがあれば記載。なければ「なし」 |
@@ -38,16 +38,17 @@ name: translate
 
 | 層 | モジュール | 主な責務 |
 |----|-----------|---------|
+| Orchestration | `backend/src/origin_spyglass/pipelines/` | Spyglass (LangGraph) の実行、グラフ制御 |
+| Node (Gatherer) | `backend/src/origin_spyglass/local_doc_loader/` | ローカル文書のパース、テキスト化、前処理 |
+| Node (Persister - Doc) | `backend/src/origin_spyglass/doc_relationship_persister/` | 文書エンティティ・メタデータの保存 (Postgres/pgvector) |
+| Node (Persister - Rel) | `backend/src/origin_spyglass/idea_relation_persister/` | 概念・引用関係のグラフ保存 (Neo4j) |
+| Node (Persister - Res) | `backend/src/origin_spyglass/semantic_knowledge_archiver/` | 調査報告とギャップ履歴の保存 |
 | API | `backend/src/origin_spyglass/api/` | FastAPI エンドポイント、リクエスト受付 |
-| Service (ask) | `backend/src/origin_spyglass/services/ask/` | 質問応答ロジック、PropertyGraphStore 検索 |
-| Service (index) | `backend/src/origin_spyglass/services/index/` | インデキシング、Neo4j への保存 |
-| Service (documents) | `backend/src/origin_spyglass/services/documents/` | ドキュメント変換 (PDF/Word → Markdown) |
-| LLM | `backend/src/origin_spyglass/llm/` | LLMクライアント管理、プロバイダー接続 |
-| DB | `backend/src/origin_spyglass/db/` | Neo4j 接続管理 |
-| Models | `backend/src/origin_spyglass/models/` | Pydantic スキーマ |
+| Tool / Infra | `backend/src/origin_spyglass/infra/` | LLM, Neo4j, VectorStore への具体的接続・操作 |
+| Models | `backend/src/origin_spyglass/schemas/` | Pydantic スキーマ定義 |
+| Cross-Cutting | `backend/src/spyglass_utils/` | ロギング、セキュリティ、フィルタ、レート制限 |
 | Frontend | `frontend/` | UI |
-| Config | `envs/` | Docker、環境設定 |
-| Tests | `backend/tests/`, `tests/` | ユニットテスト、統合テスト |
+| Tests | `backend/tests/` | ユニットテスト、統合テスト |
 
 **出力フォーマット**:
 
@@ -55,12 +56,12 @@ name: translate
 ## 翻訳結果
 
 ### 論点1: [ユーザーの原文から抜粋]
-- 対象層: Service (ask)
+- 対象層: Node (Persister - Rel)
 - スコープ: 単一ファイル
 - 問題の種類: 期待と異なる動作
 - エラー情報: なし
-- 技術的な問題文: retrieval.py の検索クエリ構築で、エンティティの部分一致検索ができていない
-- 対象ファイル: `backend/src/origin_spyglass/services/ask/retrieval.py`
+- 技術的な問題文: extractor.py で特定の引用フォーマットからエッジを抽出できていない
+- 対象ファイル: `backend/src/origin_spyglass/idea_relation_persister/extractor.py`
 
 ### 論点2: ...
 ```
