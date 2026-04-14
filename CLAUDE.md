@@ -20,7 +20,7 @@ Current codebase status:
 2. **explore**: 関連ファイル、依存関係、既存テストを調査する
 3. **translate**: 変更を実装可能な技術課題に分解する
 4. **implement**: 最小変更で実装し、既存スタイルを維持する
-5. **test**: backend は pytest、frontend は lint/test を実行する
+5. **test**: backend は pytest、frontend は lint/test を実行する（backend テストは `backend/src` の構成を `backend/tests` にミラーして実装する）
 6. **review**: 変更内容、影響範囲、未対応事項を要約する
 
 </important>
@@ -136,6 +136,7 @@ origin-spyglass/
 
 - Keep API routers thin and move logic into node/services layers.
 - Add or update tests for every behavior change.
+- Implement backend tests as a mirror of the `backend/src` module structure under `backend/tests`.
 - Preserve backward-compatible API contracts unless explicitly changed.
 - Fail safely: on external dependency failure, return actionable errors.
 - Use typed schemas for node inputs/outputs.
