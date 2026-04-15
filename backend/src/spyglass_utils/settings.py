@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     environment: str = "local"
     model_id: str = "llm-agent"
     triplet_schema_path: str = "config/triplet_schema.yml"
+    chat_max_messages: int = 100
+    chat_max_content_length: int = 10_000
 
     model_config = SettingsConfigDict(
         env_file=".env",

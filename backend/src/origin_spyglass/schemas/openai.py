@@ -4,8 +4,11 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-_MAX_MESSAGES = 100
-_MAX_CONTENT_LENGTH = 10_000
+from spyglass_utils.settings import get_settings as _get_settings
+
+_settings = _get_settings()
+_MAX_MESSAGES: int = _settings.chat_max_messages
+_MAX_CONTENT_LENGTH: int = _settings.chat_max_content_length
 
 
 class ChatMessage(BaseModel):
@@ -15,7 +18,7 @@ class ChatMessage(BaseModel):
 
 class ChatCompletionRequest(BaseModel):
     model: str
-    messages: Annotated[list[ChatMessage], Field(min_length=1, max_length=100)]
+    messages: Annotated[list[ChatMessage], Field(min_length=1, max_length=_MAX_MESSAGES)]
     max_tokens: Annotated[int, Field(gt=0, le=4096)] | None = None
 
     @model_validator(mode="after")
@@ -47,6 +50,26 @@ class ChatCompletionResponse(BaseModel):
     model: str
     choices: list[ChatCompletionChoice]
     usage: ChatCompletionUsage = Field(default_factory=ChatCompletionUsage)
+
+
+class ChatCompletionStreamDelta(BaseModel):
+    role: Literal["assistant"] | None = None
+    content: str | None = None
+    reasoning_content: str | None = None
+
+
+class ChatCompletionStreamChoice(BaseModel):
+    index: int = 0
+    delta: ChatCompletionStreamDelta
+    finish_reason: str | None = None
+
+
+class ChatCompletionStreamChunk(BaseModel):
+    id: str = Field(default_factory=lambda: f"chatcmpl-{uuid.uuid4().hex}")
+    object: str = "chat.completion.chunk"
+    created: int = Field(default_factory=lambda: int(time.time()))
+    model: str
+    choices: list[ChatCompletionStreamChoice]
 
 
 class ModelObject(BaseModel):
