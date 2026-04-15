@@ -1,6 +1,7 @@
 """パイプラインオーケストレーション"""
 
 import time
+from collections.abc import AsyncGenerator
 
 from spyglass_utils.logging import get_logger
 
@@ -192,3 +193,125 @@ class DocRetrieverPipeline:
         except Exception as e:
             _logger.error(f"run_doc_ids failed: {e}")
             raise
+
+    async def stream_text(
+        self, input_data: DocTextRetrieverInput
+    ) -> AsyncGenerator[tuple[str, str], None]:
+        """テキスト質問による検索をストリーミング出力
+
+        STEP1 は呼び出し元（API 層）で事前に実施済み。
+        STEP2～STEP4 の開始・完了を reasoning チャンクとして yield し、
+        最終回答を content チャンクとして yield する。
+
+        Raises:
+            QueryFailed: LLM 失敗またはクエリ実行失敗
+            VectorStoreUnavailable: VectorStore 接続不可
+        """
+        start_time = time.time()
+
+        # STEP2: LLM 意図解析
+        yield ("reasoning", "STEP2: 意図解析 開始")
+        interpreted_query = await interpret.interpret(
+            question=input_data.question,
+            llm_client=self._llm_client,
+        )
+        yield ("reasoning", f"STEP2: 意図解析 完了 → {interpreted_query!r}")
+
+        # STEP3: VectorStore 探索
+        yield ("reasoning", "STEP3: ドキュメント検索 開始")
+        related_docs = await query_retrieve.explore_by_text(
+            question=interpreted_query,
+            manager=self._vector_store,
+            llm_client=self._llm_client,
+            max_results=input_data.max_results,
+            domain=input_data.domain,
+        )
+        yield ("reasoning", f"STEP3: ドキュメント検索 完了 → {len(related_docs)} 件取得")
+
+        # STEP4: 結果整形
+        yield ("reasoning", "STEP4: 結果整形 開始")
+        elapsed_ms = int((time.time() - start_time) * 1000)
+        output = await express.express_text(
+            question=input_data.question,
+            related_docs=related_docs,
+            llm_client=self._llm_client,
+            elapsed_ms=elapsed_ms,
+        )
+        yield ("reasoning", "STEP4: 結果整形 完了")
+
+        yield ("content", output.answer)
+
+    async def stream_keywords(
+        self, input_data: DocKeywordsRetrieverInput
+    ) -> AsyncGenerator[tuple[str, str], None]:
+        """キーワード検索をストリーミング出力
+
+        STEP1 は呼び出し元（API 層）で事前に実施済み。
+        STEP3～STEP4 の開始・完了を reasoning チャンクとして yield し、
+        最終回答を content チャンクとして yield する。
+
+        Raises:
+            QueryFailed: クエリ実行失敗
+            VectorStoreUnavailable: VectorStore 接続不可
+        """
+        start_time = time.time()
+
+        # STEP3: VectorStore 探索
+        yield ("reasoning", "STEP3: ドキュメント検索 開始")
+        related_docs = await query_retrieve.explore_by_keywords(
+            keywords=input_data.keywords,
+            manager=self._vector_store,
+            llm_client=self._llm_client,
+            max_results=input_data.max_results,
+            domain=input_data.domain,
+        )
+        yield ("reasoning", f"STEP3: ドキュメント検索 完了 → {len(related_docs)} 件取得")
+
+        # STEP4: 結果整形
+        yield ("reasoning", "STEP4: 結果整形 開始")
+        elapsed_ms = int((time.time() - start_time) * 1000)
+        output = await express.express_keywords(
+            keywords=input_data.keywords,
+            related_docs=related_docs,
+            llm_client=self._llm_client,
+            elapsed_ms=elapsed_ms,
+        )
+        yield ("reasoning", "STEP4: 結果整形 完了")
+
+        yield ("content", output.answer)
+
+    async def stream_doc_ids(
+        self, input_data: DocIdsRetrieverInput
+    ) -> AsyncGenerator[tuple[str, str], None]:
+        """ID 指定検索をストリーミング出力
+
+        STEP1 は呼び出し元（API 層）で事前に実施済み。
+        STEP3～STEP4 の開始・完了を reasoning チャンクとして yield し、
+        最終回答を content チャンクとして yield する。
+
+        Raises:
+            QueryFailed: クエリ実行失敗
+            VectorStoreUnavailable: VectorStore 接続不可
+        """
+        start_time = time.time()
+
+        # STEP3: VectorStore 探索
+        yield ("reasoning", "STEP3: ドキュメント取得 開始")
+        related_docs = await query_retrieve.fetch_by_ids(
+            doc_ids=input_data.doc_ids,
+            manager=self._vector_store,
+        )
+        yield ("reasoning", f"STEP3: ドキュメント取得 完了 → {len(related_docs)} 件取得")
+
+        # STEP4: 結果整形
+        yield ("reasoning", "STEP4: 結果整形 開始")
+        elapsed_ms = int((time.time() - start_time) * 1000)
+        output = await express.express_doc_ids(
+            doc_ids=input_data.doc_ids,
+            related_docs=related_docs,
+            llm_client=self._llm_client,
+            elapsed_ms=elapsed_ms,
+        )
+        yield ("reasoning", "STEP4: 結果整形 完了")
+
+        yield ("content", output.answer)

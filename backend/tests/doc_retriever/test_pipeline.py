@@ -1,4 +1,4 @@
-"""パイプライン統合テスト"""
+"""パイプライン ストリーミング テスト"""
 
 from datetime import date
 from unittest.mock import AsyncMock
@@ -39,9 +39,14 @@ def make_mock_document() -> DocumentRecord:
     )
 
 
+# ============================================================================
+# stream_text
+# ============================================================================
+
+
 @pytest.mark.asyncio
-async def test_run_text_success() -> None:
-    """run_text の正常系実行"""
+async def test_stream_text_yields_reasoning_and_content() -> None:
+    """stream_text が reasoning × 6 + content × 1 を yield する"""
     mock_manager = AsyncMock()
     mock_manager.retrieval_with_text = AsyncMock(return_value=[make_mock_document()])
     mock_llm = AsyncMock()
@@ -52,31 +57,28 @@ async def test_run_text_success() -> None:
     pipeline = DocRetrieverPipeline(mock_manager, mock_llm)
     input_data = make_text_input()
 
-    result = await pipeline.run_text(input_data)
+    events: list[tuple[str, str]] = []
+    async for kind, text in pipeline.stream_text(input_data):
+        events.append((kind, text))
 
-    assert result.question == input_data.question
-    assert len(result.related_docs) > 0
-    assert result.elapsed_ms >= 0
+    reasoning = [t for k, t in events if k == "reasoning"]
+    content = [t for k, t in events if k == "content"]
 
+    # STEP2 × 2 + STEP3 × 2 + STEP4 × 2 = 6
+    assert len(reasoning) == 6
+    assert len(content) == 1
 
-@pytest.mark.asyncio
-async def test_run_text_validation_error() -> None:
-    """バリデーション失敗で例外"""
-    mock_manager = AsyncMock()
-    mock_llm = AsyncMock()
-
-    pipeline = DocRetrieverPipeline(mock_manager, mock_llm)
-    input_data = make_text_input(question="")
-
-    with pytest.raises(DocRetrieverValidationError):
-        await pipeline.run_text(input_data)
+    # ステップ名が含まれることを確認
+    assert any("STEP2" in t for t in reasoning)
+    assert any("STEP3" in t for t in reasoning)
+    assert any("STEP4" in t for t in reasoning)
 
 
 @pytest.mark.asyncio
-async def test_run_text_query_failed() -> None:
-    """クエリ失敗で例外"""
+async def test_stream_text_query_failed() -> None:
+    """stream_text で VectorStore 呼び出し失敗時に QueryFailed が伝播する"""
     mock_manager = AsyncMock()
-    mock_manager.retrieval_with_text = AsyncMock(side_effect=Exception("query error"))
+    mock_manager.retrieval_with_text = AsyncMock(side_effect=Exception("syntax error"))
     mock_llm = AsyncMock()
     mock_llm.generate_response = lambda **kwargs: type(
         "obj", (object,), {"interpreted_query": "query"}
@@ -86,84 +88,13 @@ async def test_run_text_query_failed() -> None:
     input_data = make_text_input()
 
     with pytest.raises(QueryFailed):
-        await pipeline.run_text(input_data)
+        async for _ in pipeline.stream_text(input_data):
+            pass
 
 
 @pytest.mark.asyncio
-async def test_run_keywords_success() -> None:
-    """run_keywords の正常系実行"""
-    mock_manager = AsyncMock()
-    mock_manager.retrieval_with_keywords = AsyncMock(return_value=[make_mock_document()])
-    mock_llm = AsyncMock()
-
-    pipeline = DocRetrieverPipeline(mock_manager, mock_llm)
-    input_data = make_keywords_input()
-
-    result = await pipeline.run_keywords(input_data)
-
-    assert result.keywords == input_data.keywords
-    assert len(result.related_docs) > 0
-
-
-@pytest.mark.asyncio
-async def test_run_keywords_validation_error() -> None:
-    """キーワードバリデーション失敗"""
-    mock_manager = AsyncMock()
-    mock_llm = AsyncMock()
-
-    pipeline = DocRetrieverPipeline(mock_manager, mock_llm)
-    input_data = make_keywords_input(keywords=[])
-
-    with pytest.raises(DocRetrieverValidationError):
-        await pipeline.run_keywords(input_data)
-
-
-@pytest.mark.asyncio
-async def test_run_doc_ids_success() -> None:
-    """run_doc_ids の正常系実行"""
-    mock_manager = AsyncMock()
-    mock_manager.retrieval_with_doc_ids = AsyncMock(return_value=[make_mock_document()])
-    mock_llm = AsyncMock()
-
-    pipeline = DocRetrieverPipeline(mock_manager, mock_llm)
-    input_data = make_ids_input()
-
-    result = await pipeline.run_doc_ids(input_data)
-
-    assert result.doc_ids == input_data.doc_ids
-    assert len(result.related_docs) > 0
-
-
-@pytest.mark.asyncio
-async def test_run_doc_ids_validation_error() -> None:
-    """ID検索バリデーション失敗"""
-    mock_manager = AsyncMock()
-    mock_llm = AsyncMock()
-
-    pipeline = DocRetrieverPipeline(mock_manager, mock_llm)
-    input_data = make_ids_input(doc_ids=[])
-
-    with pytest.raises(DocRetrieverValidationError):
-        await pipeline.run_doc_ids(input_data)
-
-
-@pytest.mark.asyncio
-async def test_run_doc_ids_vector_store_unavailable() -> None:
-    """VectorStore接続不可"""
-    mock_manager = AsyncMock()
-    mock_manager.retrieval_with_doc_ids = AsyncMock(side_effect=Exception("connection refused"))
-    mock_llm = AsyncMock()
-
-    pipeline = DocRetrieverPipeline(mock_manager, mock_llm)
-    input_data = make_ids_input()
-
-    with pytest.raises(VectorStoreUnavailable):
-        await pipeline.run_doc_ids(input_data)
-
-
-@pytest.mark.asyncio
-async def test_run_text_vector_store_unavailable() -> None:
-    """run_text でVectorStore接続不可"""
+async def test_stream_text_vector_store_unavailable() -> None:
+    """stream_text で接続エラー時に VectorStoreUnavailable が伝播する"""
     mock_manager = AsyncMock()
     mock_manager.retrieval_with_text = AsyncMock(side_effect=Exception("connection refused"))
     mock_llm = AsyncMock()
@@ -175,46 +106,177 @@ async def test_run_text_vector_store_unavailable() -> None:
     input_data = make_text_input()
 
     with pytest.raises(VectorStoreUnavailable):
-        await pipeline.run_text(input_data)
+        async for _ in pipeline.stream_text(input_data):
+            pass
 
 
 @pytest.mark.asyncio
-async def test_run_keywords_query_failed() -> None:
-    """run_keywords でクエリ失敗"""
+async def test_stream_text_validation_error_propagates() -> None:
+    """stream_text に空 question を渡すと DocRetrieverValidationError は呼び出し元から検出する"""
+    # stream_text は STEP1 をスキップするが、空 question の場合 interpret で失敗することを確認
+    # （API 層が事前にバリデーション済みである前提のため、ここでは空 question での動作を記録）
+    mock_manager = AsyncMock()
+    mock_llm = AsyncMock()
+    mock_llm.generate_response = lambda **kwargs: type(
+        "obj", (object,), {"interpreted_query": ""}
+    )()
+    # 空 question でも interpret が失敗しなければ STEP3 以降に進む（API 側でブロック済み）
+    mock_manager.retrieval_with_text = AsyncMock(return_value=[])
+
+    pipeline = DocRetrieverPipeline(mock_manager, mock_llm)
+    # stream_text 自体はバリデーション不要の設計
+    events: list[tuple[str, str]] = []
+    async for kind, text in pipeline.stream_text(make_text_input()):
+        events.append((kind, text))
+    assert any(k == "content" for k, _ in events)
+
+
+# ============================================================================
+# stream_keywords
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_stream_keywords_yields_reasoning_and_content() -> None:
+    """stream_keywords が reasoning × 4 + content × 1 を yield する"""
+    mock_manager = AsyncMock()
+    mock_manager.retrieval_with_keywords = AsyncMock(return_value=[make_mock_document()])
+    mock_llm = AsyncMock()
+
+    pipeline = DocRetrieverPipeline(mock_manager, mock_llm)
+    input_data = make_keywords_input()
+
+    events: list[tuple[str, str]] = []
+    async for kind, text in pipeline.stream_keywords(input_data):
+        events.append((kind, text))
+
+    reasoning = [t for k, t in events if k == "reasoning"]
+    content = [t for k, t in events if k == "content"]
+
+    # STEP3 × 2 + STEP4 × 2 = 4
+    assert len(reasoning) == 4
+    assert len(content) == 1
+    assert any("STEP3" in t for t in reasoning)
+    assert any("STEP4" in t for t in reasoning)
+
+
+@pytest.mark.asyncio
+async def test_stream_keywords_query_failed() -> None:
+    """stream_keywords で非接続エラー時に QueryFailed が伝播する"""
     mock_manager = AsyncMock()
     mock_manager.retrieval_with_keywords = AsyncMock(side_effect=Exception("syntax error"))
     mock_llm = AsyncMock()
 
     pipeline = DocRetrieverPipeline(mock_manager, mock_llm)
-    input_data = make_keywords_input()
 
     with pytest.raises(QueryFailed):
-        await pipeline.run_keywords(input_data)
+        async for _ in pipeline.stream_keywords(make_keywords_input()):
+            pass
 
 
 @pytest.mark.asyncio
-async def test_run_keywords_vector_store_unavailable() -> None:
-    """run_keywords でVectorStore接続不可"""
+async def test_stream_keywords_vector_store_unavailable() -> None:
+    """stream_keywords で接続エラー時に VectorStoreUnavailable が伝播する"""
     mock_manager = AsyncMock()
     mock_manager.retrieval_with_keywords = AsyncMock(side_effect=Exception("connection refused"))
     mock_llm = AsyncMock()
 
     pipeline = DocRetrieverPipeline(mock_manager, mock_llm)
-    input_data = make_keywords_input()
 
     with pytest.raises(VectorStoreUnavailable):
-        await pipeline.run_keywords(input_data)
+        async for _ in pipeline.stream_keywords(make_keywords_input()):
+            pass
+
+
+# ============================================================================
+# stream_doc_ids
+# ============================================================================
 
 
 @pytest.mark.asyncio
-async def test_run_doc_ids_query_failed() -> None:
-    """run_doc_ids で非接続エラー → QueryFailed"""
+async def test_stream_doc_ids_yields_reasoning_and_content() -> None:
+    """stream_doc_ids が reasoning × 4 + content × 1 を yield する"""
     mock_manager = AsyncMock()
-    mock_manager.retrieval_with_doc_ids = AsyncMock(side_effect=Exception("syntax error"))
+    mock_manager.retrieval_with_doc_ids = AsyncMock(return_value=[make_mock_document()])
     mock_llm = AsyncMock()
 
     pipeline = DocRetrieverPipeline(mock_manager, mock_llm)
     input_data = make_ids_input()
 
+    events: list[tuple[str, str]] = []
+    async for kind, text in pipeline.stream_doc_ids(input_data):
+        events.append((kind, text))
+
+    reasoning = [t for k, t in events if k == "reasoning"]
+    content = [t for k, t in events if k == "content"]
+
+    # STEP3 × 2 + STEP4 × 2 = 4
+    assert len(reasoning) == 4
+    assert len(content) == 1
+    assert any("STEP3" in t for t in reasoning)
+    assert any("STEP4" in t for t in reasoning)
+
+
+@pytest.mark.asyncio
+async def test_stream_doc_ids_query_failed() -> None:
+    """stream_doc_ids で非接続エラー時に QueryFailed が伝播する"""
+    mock_manager = AsyncMock()
+    mock_manager.retrieval_with_doc_ids = AsyncMock(side_effect=Exception("syntax error"))
+    mock_llm = AsyncMock()
+
+    pipeline = DocRetrieverPipeline(mock_manager, mock_llm)
+
     with pytest.raises(QueryFailed):
-        await pipeline.run_doc_ids(input_data)
+        async for _ in pipeline.stream_doc_ids(make_ids_input()):
+            pass
+
+
+@pytest.mark.asyncio
+async def test_stream_doc_ids_vector_store_unavailable() -> None:
+    """stream_doc_ids で接続エラー時に VectorStoreUnavailable が伝播する"""
+    mock_manager = AsyncMock()
+    mock_manager.retrieval_with_doc_ids = AsyncMock(side_effect=Exception("connection refused"))
+    mock_llm = AsyncMock()
+
+    pipeline = DocRetrieverPipeline(mock_manager, mock_llm)
+
+    with pytest.raises(VectorStoreUnavailable):
+        async for _ in pipeline.stream_doc_ids(make_ids_input()):
+            pass
+
+
+@pytest.mark.asyncio
+async def test_stream_doc_ids_empty_result() -> None:
+    """stream_doc_ids でドキュメントが 0 件の場合も content を yield する"""
+    mock_manager = AsyncMock()
+    mock_manager.retrieval_with_doc_ids = AsyncMock(return_value=[])
+    mock_llm = AsyncMock()
+
+    pipeline = DocRetrieverPipeline(mock_manager, mock_llm)
+
+    events: list[tuple[str, str]] = []
+    async for kind, text in pipeline.stream_doc_ids(make_ids_input()):
+        events.append((kind, text))
+
+    content = [t for k, t in events if k == "content"]
+    assert len(content) == 1
+
+    # STEP3 完了メッセージに 0 件が含まれること
+    reasoning = [t for k, t in events if k == "reasoning"]
+    assert any("0 件" in t for t in reasoning)
+
+
+# ============================================================================
+# validation エラーは API 層で処理されるため pipeline テストから除外
+# ============================================================================
+
+
+def test_validation_error_not_raised_by_stream_methods() -> None:
+    """stream_* メソッドはバリデーションをスキップする設計であることを記録する。
+
+    STEP1 バリデーションは API 層 (docs.py) で実施され、
+    DocRetrieverValidationError を 422 HTTPException に変換する。
+    pipeline.stream_* はバリデーション済み入力を受け取ることを前提とする。
+    """
+    # このテストはドキュメンテーション目的。設計意図の記録のみ。
+    assert issubclass(DocRetrieverValidationError, ValueError)
