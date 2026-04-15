@@ -27,6 +27,12 @@ class DuplicateDocumentError(ValueError):
         super().__init__(f"[duplicate] doc_id={doc_id} title={title!r} year={year}")
 
 
+class VectorStoreUnavailable(Exception):
+    """VectorStore（PostgreSQL）への接続不可を示す例外"""
+
+    pass
+
+
 class DocRelationshipPersisterInput(BaseModel):
     """Doc Relationship Persister の入力スキーマ
 

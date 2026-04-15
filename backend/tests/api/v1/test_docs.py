@@ -3,6 +3,7 @@
 実際の PostgreSQL への接続が不要なよう、セッション依存をモックする。
 """
 
+import json
 from collections.abc import AsyncGenerator, Generator
 from datetime import date
 from typing import Any
@@ -18,6 +19,16 @@ from origin_spyglass.doc_relationship_persister import (
 )
 from origin_spyglass.main import app
 from origin_spyglass.schemas.doc_relation import SourceType
+
+
+def _parse_sse_chunks(content: bytes) -> list[dict[str, Any]]:
+    """SSE レスポンスを JSON チャンクのリストにパースする（[DONE] は除く）。"""
+    chunks = []
+    for line in content.decode().splitlines():
+        if line.startswith("data: ") and line != "data: [DONE]":
+            chunks.append(json.loads(line[len("data: ") :]))
+    return chunks
+
 
 _SAMPLE_OUTPUT = DocRelationshipPersisterOutput(
     doc_id="report",
@@ -164,3 +175,289 @@ def test_persist_document_metadata_error_returns_422(monkeypatch: pytest.MonkeyP
 
     response = client.post("/v1/docs", json=_VALID_BODY)
     assert response.status_code == 422
+
+
+# ============================================================================
+# Doc Retriever エンドポイント テスト
+# ============================================================================
+
+
+def test_retrieval_with_text_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """POST /v1/docs/retrieval/text が SSE ストリームを返す"""
+    from origin_spyglass.api.v1 import docs as docs_module
+
+    async def _mock_stream_text(self: Any, input: Any) -> AsyncGenerator[tuple[str, str], None]:  # noqa: ANN001
+        yield ("reasoning", "STEP2: 意図解析 開始")
+        yield ("reasoning", "STEP2: 意図解析 完了 → 'quantum computer'")
+        yield ("reasoning", "STEP3: ドキュメント検索 開始")
+        yield ("reasoning", "STEP3: ドキュメント検索 完了 → 1 件取得")
+        yield ("content", "A quantum computer is a device that uses quantum mechanics.")
+
+    monkeypatch.setattr(docs_module.DocRetrieverPipeline, "stream_text", _mock_stream_text)
+
+    response = client.post(
+        "/v1/docs/retrieval/text",
+        json={"question": "quantum computer", "max_results": 10},
+    )
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers["content-type"]
+
+    chunks = _parse_sse_chunks(response.content)
+    assert len(chunks) >= 2  # reasoning + content + finish
+
+    # content チャンクを確認
+    content_chunks = [
+        c for c in chunks if c.get("choices", [{}])[0].get("delta", {}).get("content")
+    ]
+    assert len(content_chunks) == 1
+    assert "quantum" in content_chunks[0]["choices"][0]["delta"]["content"]
+
+
+def test_retrieval_with_text_validation_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """POST /v1/docs/retrieval/text の入力エラーで 422 が返る（ストリーム前）"""
+    response = client.post(
+        "/v1/docs/retrieval/text",
+        json={"question": "", "max_results": 10},
+    )
+    assert response.status_code == 422
+
+
+def test_retrieval_with_keywords_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """POST /v1/docs/retrieval/keywords が SSE ストリームを返す"""
+    from origin_spyglass.api.v1 import docs as docs_module
+
+    async def _mock_stream_keywords(self: Any, input: Any) -> AsyncGenerator[tuple[str, str], None]:  # noqa: ANN001
+        yield ("reasoning", "STEP3: ドキュメント検索 開始")
+        yield ("reasoning", "STEP3: ドキュメント検索 完了 → 2 件取得")
+        yield ("content", "Found relevant quantum documents.")
+
+    monkeypatch.setattr(docs_module.DocRetrieverPipeline, "stream_keywords", _mock_stream_keywords)
+
+    response = client.post(
+        "/v1/docs/retrieval/keywords",
+        json={"keywords": ["quantum", "computer"], "max_results": 10},
+    )
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers["content-type"]
+
+    chunks = _parse_sse_chunks(response.content)
+    content_chunks = [
+        c for c in chunks if c.get("choices", [{}])[0].get("delta", {}).get("content")
+    ]
+    assert len(content_chunks) == 1
+
+
+def test_retrieval_with_doc_ids_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """POST /v1/docs/retrieval/doc-ids が SSE ストリームを返す"""
+    from origin_spyglass.api.v1 import docs as docs_module
+
+    async def _mock_stream_doc_ids(self: Any, input: Any) -> AsyncGenerator[tuple[str, str], None]:  # noqa: ANN001
+        yield ("reasoning", "STEP3: ドキュメント取得 開始")
+        yield ("reasoning", "STEP3: ドキュメント取得 完了 → 1 件取得")
+        yield ("content", "Retrieved 1 document.")
+
+    monkeypatch.setattr(docs_module.DocRetrieverPipeline, "stream_doc_ids", _mock_stream_doc_ids)
+
+    response = client.post(
+        "/v1/docs/retrieval/doc-ids",
+        json={"doc_ids": ["550e8400-e29b-41d4-a716-446655440000"]},
+    )
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers["content-type"]
+
+    chunks = _parse_sse_chunks(response.content)
+    content_chunks = [
+        c for c in chunks if c.get("choices", [{}])[0].get("delta", {}).get("content")
+    ]
+    assert len(content_chunks) == 1
+
+
+def test_retrieval_with_text_query_failed_returns_error_chunk(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """POST /v1/docs/retrieval/text で QueryFailed 発生時に SSE エラーチャンクが返る"""
+    from origin_spyglass.api.v1 import docs as docs_module
+    from origin_spyglass.doc_retriever import QueryFailed
+
+    async def _raise_stream_text(self: Any, input: Any) -> AsyncGenerator[tuple[str, str], None]:  # noqa: ANN001
+        yield ("reasoning", "STEP2: 意図解析 開始")
+        raise QueryFailed("llm failed")
+
+    monkeypatch.setattr(docs_module.DocRetrieverPipeline, "stream_text", _raise_stream_text)
+
+    response = client.post(
+        "/v1/docs/retrieval/text",
+        json={"question": "quantum computer", "max_results": 10},
+    )
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers["content-type"]
+
+    chunks = _parse_sse_chunks(response.content)
+    error_chunks = [
+        c
+        for c in chunks
+        if "[ERROR]" in (c.get("choices", [{}])[0].get("delta", {}).get("content") or "")
+    ]
+    assert len(error_chunks) == 1
+    assert "llm failed" in error_chunks[0]["choices"][0]["delta"]["content"]
+
+
+def test_retrieval_with_keywords_vector_store_unavailable_returns_error_chunk(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """POST /v1/docs/retrieval/keywords で
+    VectorStoreUnavailable 発生時に SSE エラーチャンクが返る"""
+    from origin_spyglass.api.v1 import docs as docs_module
+    from origin_spyglass.doc_relationship_persister.types import VectorStoreUnavailable
+
+    async def _raise_stream_keywords(
+        self: Any, input: Any
+    ) -> AsyncGenerator[tuple[str, str], None]:  # noqa: ANN001
+        yield ("reasoning", "STEP3: ドキュメント検索 開始")
+        raise VectorStoreUnavailable("postgres unavailable")
+
+    monkeypatch.setattr(docs_module.DocRetrieverPipeline, "stream_keywords", _raise_stream_keywords)
+
+    response = client.post(
+        "/v1/docs/retrieval/keywords",
+        json={"keywords": ["quantum", "computer"], "max_results": 10},
+    )
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers["content-type"]
+
+    chunks = _parse_sse_chunks(response.content)
+    error_chunks = [
+        c
+        for c in chunks
+        if "[ERROR]" in (c.get("choices", [{}])[0].get("delta", {}).get("content") or "")
+    ]
+    assert len(error_chunks) == 1
+
+
+def test_retrieval_with_text_vector_store_unavailable_returns_error_chunk(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """POST /v1/docs/retrieval/text で VectorStoreUnavailable 発生時に
+    SSE エラーチャンクが返る"""
+    from origin_spyglass.api.v1 import docs as docs_module
+    from origin_spyglass.doc_relationship_persister.types import VectorStoreUnavailable
+
+    async def _raise_stream_text(self: Any, input: Any) -> AsyncGenerator[tuple[str, str], None]:  # noqa: ANN001
+        yield ("reasoning", "STEP2: 意図解析 開始")
+        raise VectorStoreUnavailable("postgres unavailable")
+
+    monkeypatch.setattr(docs_module.DocRetrieverPipeline, "stream_text", _raise_stream_text)
+
+    response = client.post(
+        "/v1/docs/retrieval/text",
+        json={"question": "quantum computer", "max_results": 10},
+    )
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers["content-type"]
+
+    chunks = _parse_sse_chunks(response.content)
+    error_chunks = [
+        c
+        for c in chunks
+        if "[ERROR]" in (c.get("choices", [{}])[0].get("delta", {}).get("content") or "")
+    ]
+    assert len(error_chunks) == 1
+
+
+def test_retrieval_with_keywords_query_failed_returns_error_chunk(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """POST /v1/docs/retrieval/keywords で QueryFailed 発生時に SSE エラーチャンクが返る"""
+    from origin_spyglass.api.v1 import docs as docs_module
+    from origin_spyglass.doc_retriever import QueryFailed
+
+    async def _raise_stream_keywords(
+        self: Any, input: Any
+    ) -> AsyncGenerator[tuple[str, str], None]:  # noqa: ANN001
+        yield ("reasoning", "STEP3: ドキュメント検索 開始")
+        raise QueryFailed("query failed")
+
+    monkeypatch.setattr(docs_module.DocRetrieverPipeline, "stream_keywords", _raise_stream_keywords)
+
+    response = client.post(
+        "/v1/docs/retrieval/keywords",
+        json={"keywords": ["quantum", "computer"], "max_results": 10},
+    )
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers["content-type"]
+
+    chunks = _parse_sse_chunks(response.content)
+    error_chunks = [
+        c
+        for c in chunks
+        if "[ERROR]" in (c.get("choices", [{}])[0].get("delta", {}).get("content") or "")
+    ]
+    assert len(error_chunks) == 1
+
+
+def test_retrieval_with_doc_ids_validation_error_returns_422() -> None:
+    """POST /v1/docs/retrieval/doc-ids で空リスト送信時に 422 が返る（ストリーム前）"""
+    response = client.post(
+        "/v1/docs/retrieval/doc-ids",
+        json={"doc_ids": []},
+    )
+    assert response.status_code == 422
+
+
+def test_retrieval_with_doc_ids_query_failed_returns_error_chunk(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """POST /v1/docs/retrieval/doc-ids で QueryFailed 発生時に SSE エラーチャンクが返る"""
+    from origin_spyglass.api.v1 import docs as docs_module
+    from origin_spyglass.doc_retriever import QueryFailed
+
+    async def _raise_stream_doc_ids(self: Any, input: Any) -> AsyncGenerator[tuple[str, str], None]:  # noqa: ANN001
+        yield ("reasoning", "STEP3: ドキュメント取得 開始")
+        raise QueryFailed("query failed")
+
+    monkeypatch.setattr(docs_module.DocRetrieverPipeline, "stream_doc_ids", _raise_stream_doc_ids)
+
+    response = client.post(
+        "/v1/docs/retrieval/doc-ids",
+        json={"doc_ids": ["550e8400-e29b-41d4-a716-446655440000"]},
+    )
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers["content-type"]
+
+    chunks = _parse_sse_chunks(response.content)
+    error_chunks = [
+        c
+        for c in chunks
+        if "[ERROR]" in (c.get("choices", [{}])[0].get("delta", {}).get("content") or "")
+    ]
+    assert len(error_chunks) == 1
+
+
+def test_retrieval_with_doc_ids_vector_store_unavailable_returns_error_chunk(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """POST /v1/docs/retrieval/doc-ids で VectorStoreUnavailable
+    発生時に SSE エラーチャンクが返る"""
+    from origin_spyglass.api.v1 import docs as docs_module
+    from origin_spyglass.doc_relationship_persister.types import VectorStoreUnavailable
+
+    async def _raise_stream_doc_ids(self: Any, input: Any) -> AsyncGenerator[tuple[str, str], None]:  # noqa: ANN001
+        yield ("reasoning", "STEP3: ドキュメント取得 開始")
+        raise VectorStoreUnavailable("postgres unavailable")
+
+    monkeypatch.setattr(docs_module.DocRetrieverPipeline, "stream_doc_ids", _raise_stream_doc_ids)
+
+    response = client.post(
+        "/v1/docs/retrieval/doc-ids",
+        json={"doc_ids": ["550e8400-e29b-41d4-a716-446655440000"]},
+    )
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers["content-type"]
+
+    chunks = _parse_sse_chunks(response.content)
+    error_chunks = [
+        c
+        for c in chunks
+        if "[ERROR]" in (c.get("choices", [{}])[0].get("delta", {}).get("content") or "")
+    ]
+    assert len(error_chunks) == 1
