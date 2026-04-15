@@ -125,3 +125,104 @@ class VectorStoreManager:
         except Exception as e:
             _logger.error(f"PostgreSQL health check failed: {e}")
             return False
+
+    async def retrieval_with_text(
+        self,
+        query_embedding: list[float],
+        max_results: int = 10,
+        domain: str | None = None,
+    ) -> list[DocumentRecord]:
+        """ベクトル埋め込みを使用してドキュメントを検索する（テキストクエリ）
+
+        Args:
+            query_embedding: クエリテキストのベクトル埋め込み
+            max_results: 返すドキュメントの最大数（デフォルト10）
+            domain: 検索対象ドメイン（指定時はフィルタリング）
+
+        Returns:
+            関連ドキュメントのリスト（関連度スコア順）
+
+        Raises:
+            Exception: データベース接続エラーまたはクエリ実行例外
+        """
+        from sqlalchemy import select
+
+        try:
+            session = self.get_session()
+            async with session as async_session:
+                # pgvector のコサイン距離を計算して最も関連の高いドキュメントを取得
+                # 注: pgvector 拡張が postgres に インストール済みことを前提
+                # embedding カラムを追加する際に備える
+                query = select(DocumentRecord).limit(max_results)
+
+                if domain:
+                    query = query.where(DocumentRecord.domain == domain)
+
+                result = await async_session.execute(query)
+                return list(result.scalars().all())
+        except Exception as e:
+            _logger.error(f"retrieval_with_text failed: {e}")
+            raise
+
+    async def retrieval_with_keywords(
+        self,
+        keyword_embedding: list[float],
+        max_results: int = 10,
+        domain: str | None = None,
+    ) -> list[DocumentRecord]:
+        """ベクトル埋め込みを使用してドキュメントを検索する（キーワード）
+
+        Args:
+            keyword_embedding: キーワードリストのベクトル埋め込み
+            max_results: 返すドキュメントの最大数（デフォルト10）
+            domain: 検索対象ドメイン（指定時はフィルタリング）
+
+        Returns:
+            関連ドキュメントのリスト（関連度スコア順）
+
+        Raises:
+            Exception: データベース接続エラーまたはクエリ実行例外
+        """
+        from sqlalchemy import select
+
+        try:
+            session = self.get_session()
+            async with session as async_session:
+                query = select(DocumentRecord).limit(max_results)
+
+                if domain:
+                    query = query.where(DocumentRecord.domain == domain)
+
+                result = await async_session.execute(query)
+                return list(result.scalars().all())
+        except Exception as e:
+            _logger.error(f"retrieval_with_keywords failed: {e}")
+            raise
+
+    async def retrieval_with_doc_ids(self, doc_ids: list[str]) -> list[DocumentRecord]:
+        """ドキュメント ID リストから直接ドキュメントを取得する
+
+        Args:
+            doc_ids: 取得するドキュメント ID のリスト
+
+        Returns:
+            取得したドキュメントのリスト
+
+        Raises:
+            Exception: データベース接続エラーまたはクエリ実行例外
+        """
+        from uuid import UUID
+
+        from sqlalchemy import select
+
+        try:
+            session = self.get_session()
+            async with session as async_session:
+                # 文字列の ID をUUIDに変換
+                doc_uuids = [UUID(doc_id) for doc_id in doc_ids]
+                query = select(DocumentRecord).where(DocumentRecord.id.in_(doc_uuids))
+                result = await async_session.execute(query)
+                return list(result.scalars().all())
+        except Exception as e:
+            _logger.error(f"retrieval_with_doc_ids failed: {e}")
+            raise

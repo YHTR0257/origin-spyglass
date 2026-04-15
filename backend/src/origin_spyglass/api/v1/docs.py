@@ -13,11 +13,32 @@ from origin_spyglass.doc_relationship_persister import (
     DuplicateDocumentError,
     MetadataValidationError,
 )
+from origin_spyglass.doc_relationship_persister.types import VectorStoreUnavailable
+from origin_spyglass.doc_retriever import (
+    DocIdsRetrieverInput,
+    DocIdsRetrieverOutput,
+    DocKeywordsRetrieverInput,
+    DocKeywordsRetrieverOutput,
+    DocRetrieverPipeline,
+    DocRetrieverValidationError,
+    DocTextRetrieverInput,
+    DocTextRetrieverOutput,
+    QueryFailed,
+)
+from origin_spyglass.infra.llm.clients import LlmClientManager
 from origin_spyglass.infra.vector_store import VectorStoreManager
 
 router = APIRouter(prefix="/docs", tags=["docs"])
 
 _manager = VectorStoreManager()
+
+_llm_manager = LlmClientManager()
+
+# LlmClientManager にデフォルトクライアントを登録
+_llm_manager.register(
+    provider="openai_api",
+    model="gpt-4o-mini",
+)
 
 
 async def _get_session() -> AsyncGenerator[AsyncSession, None]:
@@ -69,3 +90,96 @@ async def get_document(
     if result is None:
         raise HTTPException(status_code=404, detail=f"Document '{doc_id}' not found")
     return result
+
+
+# ============================================================================
+# Doc Retriever エンドポイント
+# ============================================================================
+
+
+@router.post(
+    "/retrieval/text",
+    response_model=DocTextRetrieverOutput,
+    status_code=200,
+)
+async def retrieval_with_text(
+    body: DocTextRetrieverInput,
+) -> DocTextRetrieverOutput:
+    """自然言語質問でドキュメントを検索
+
+    STEP1: 入力バリデーション
+    STEP2: LLM 意図解析
+    STEP3: pgvector セマンティック検索
+    STEP4: 結果整形 + LLM サマリー生成
+    """
+    pipeline = DocRetrieverPipeline(
+        vector_store_manager=_manager,
+        llm_client=_llm_manager.get_current_client(),
+    )
+
+    try:
+        return await pipeline.run_text(body)
+    except DocRetrieverValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except QueryFailed as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+    except VectorStoreUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+
+
+@router.post(
+    "/retrieval/keywords",
+    response_model=DocKeywordsRetrieverOutput,
+    status_code=200,
+)
+async def retrieval_with_keywords(
+    body: DocKeywordsRetrieverInput,
+) -> DocKeywordsRetrieverOutput:
+    """キーワードリストでドキュメントを検索
+
+    STEP1: 入力バリデーション
+    STEP3: pgvector ベクトル検索
+    STEP4: 結果整形 + LLM サマリー生成
+    """
+    pipeline = DocRetrieverPipeline(
+        vector_store_manager=_manager,
+        llm_client=_llm_manager.get_current_client(),
+    )
+
+    try:
+        return await pipeline.run_keywords(body)
+    except DocRetrieverValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except QueryFailed as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+    except VectorStoreUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+
+
+@router.post(
+    "/retrieval/doc-ids",
+    response_model=DocIdsRetrieverOutput,
+    status_code=200,
+)
+async def retrieval_with_doc_ids(
+    body: DocIdsRetrieverInput,
+) -> DocIdsRetrieverOutput:
+    """ドキュメント ID リストでドキュメントを取得
+
+    STEP1: 入力バリデーション
+    STEP3: ID による直接フェッチ
+    STEP4: 結果整形 + LLM サマリー生成
+    """
+    pipeline = DocRetrieverPipeline(
+        vector_store_manager=_manager,
+        llm_client=_llm_manager.get_current_client(),
+    )
+
+    try:
+        return await pipeline.run_doc_ids(body)
+    except DocRetrieverValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except QueryFailed as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+    except VectorStoreUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
